@@ -1,20 +1,20 @@
 class Jugador {
   // 1. Propiedades
   final int? id;
-  final int? equipoId;
   final String? nombre;
   final int dorsal;
-  final String posicionJuego; // central, punta, etc.
-  final int posicionCancha;    // 0 = banca, 1-6 = posición en cancha
+  int posicionCancha; // QUITAMOS el 'final' aquí para poder rotar
+  final String? posicionJuego; // Le ponemos '?' para que sea opcional
+  final int equipoId;
 
   // 2. Constructor
   Jugador({
     this.id,
-    this.equipoId,
     this.nombre,
     required this.dorsal,
-    required this.posicionJuego,
     required this.posicionCancha,
+    this.posicionJuego, // Quitamos el 'required'
+    required this.equipoId,
   });
 
   // 3. Métodos de Conversión (JSON/Map)

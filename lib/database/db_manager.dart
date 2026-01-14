@@ -46,8 +46,8 @@ class DBManager {
 
   // --- OPERACIONES (CRUD Y LÓGICA) ---
 
-  /// Intercambia un jugador de la banca por uno de la cancha
-  Future<void> intercambiarJugadores(int idEntra, int idSale, int posicion) async {
+  /// Cambio de jugador de la banca por uno de la cancha
+  Future<void> cambiarJugadores(int idEntra, int idSale, int posicion) async {
     final db = await database;
     
     await db.transaction((txn) async {
