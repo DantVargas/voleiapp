@@ -1,56 +1,65 @@
 class Jugador {
-  // 1. Propiedades
   final int? id;
-  final String? nombre;
-  final int dorsal;
-  int posicionCancha; // QUITAMOS el 'final' aquí para poder rotar
-  final String? posicionJuego; // Le ponemos '?' para que sea opcional
+  String? nombre; // Se quita 'final' para permitir la edición directa en el diálogo
+  int dorsal;
+  int posicionCancha; // 0 para banca, 1-6 para posiciones en cancha
+  final String? posicionJuego;
   final int equipoId;
 
-  // 2. Constructor
   Jugador({
     this.id,
     this.nombre,
     required this.dorsal,
     required this.posicionCancha,
-    this.posicionJuego, // Quitamos el 'required'
+    this.posicionJuego,
     required this.equipoId,
   });
 
-  // 3. Métodos de Conversión (JSON/Map)
-  factory Jugador.fromMap(Map<String, dynamic> map) {
+  // Getters de utilidad
+  bool get esSuplente => posicionCancha == 0;
+  bool get estaEnCancha => posicionCancha >= 1 && posicionCancha <= 6;
+
+  /// Crea una copia del jugador con campos actualizados.
+  /// Útil para operaciones donde prefieras inmutabilidad o para resets.
+  Jugador copyWith({
+    int? id,
+    String? nombre,
+    int? dorsal,
+    int? posicionCancha,
+    String? posicionJuego,
+    int? equipoId,
+  }) {
     return Jugador(
-      id: map['id'],
-      equipoId: map['equipo_id'],
-      nombre: map['nombre'],
-      dorsal: map['dorsal'],
-      posicionJuego: map['posicion_juego'],
-      posicionCancha: map['posicion_cancha'],
+      id: id ?? this.id,
+      nombre: nombre ?? this.nombre,
+      dorsal: dorsal ?? this.dorsal,
+      posicionCancha: posicionCancha ?? this.posicionCancha,
+      posicionJuego: posicionJuego ?? this.posicionJuego,
+      equipoId: equipoId ?? this.equipoId,
     );
   }
 
+  /// Crea un objeto Jugador a partir de un Map (útil para SQLite o JSON).
+  factory Jugador.fromMap(Map<String, dynamic> map) {
+    return Jugador(
+      id: map['id'] as int?,
+      equipoId: map['equipo_id'] as int,
+      nombre: map['nombre'] as String?,
+      dorsal: map['dorsal'] as int,
+      posicionJuego: map['posicion_juego'] as String?,
+      posicionCancha: map['posicion_cancha'] as int,
+    );
+  }
+
+  /// Convierte el objeto Jugador a un Map.
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      if (id != null) 'id': id,
       'equipo_id': equipoId,
       'nombre': nombre,
       'dorsal': dorsal,
       'posicion_juego': posicionJuego,
       'posicion_cancha': posicionCancha,
     };
-  }
-
-  // 4. Getters y Lógica de Negocio
-  bool get esSuplente => posicionCancha == 0;
-
-  Jugador entrarACancha(int nuevaPosicion) {
-    return Jugador(
-      id: id,
-      equipoId: equipoId,
-      nombre: nombre,
-      dorsal: dorsal,
-      posicionJuego: posicionJuego,
-      posicionCancha: nuevaPosicion,
-    );
   }
 }
