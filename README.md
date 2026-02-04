@@ -1,24 +1,37 @@
 # appvolei
 
-Un proyecto usando flutter
+Un proyecto usando flutter, para gestión y estadísticas del volei
 
 ## Getting Started
 
-Primero que todo se debe instalar flutter, ya sea desde Visual Studio Code
-o recomiendo ver este video -> https://www.youtube.com/watch?v=BTubOBvfEUE&t=217s.
-Tambien recomiendo instalar Android Studio, en el mismo video muestra una configuracion 
-que no es tan necesaria pero se puede instalar de esa manera.
-Android Studio --> https://developer.android.com/studio?hl=es-419
+Para configurar el entorno de desarrollo en tu máquina local, sigue estos pasos:
 
-Una vez ya instalado, se deben instalar los complementos de flutter, seguir los siguientes comandos en la terminal,
+# 1. Requisitos Previos
+Flutter SDK: Puedes instalarlo desde VS Code o siguiendo este tutorial --> https://www.youtube.com/watch?v=BTubOBvfEUE&t=217s.
 
---> cd appvolei (posicionarse en la carpeta de la app)
---> flutter pub get (para instalar los complementos de flutter)
---> flutter doctor (En caso de algun error, mostrara que falta por instalar)
---> flutter run (Con este correra la app, se puede visualizar sin problema desde algun navegador, pero recomendo emular algun telefono)
---> flutter build apk (para crear apk)
+Android Studio: Recomendado para la gestión de emuladores y herramientas de Android --> https://developer.android.com/studio?hl=es-419.
 
-Si quieren revisar mas complementos o funcionalidades extras de flutter revisar --> https://pub.dev/
+# 2. Configuración del Proyecto
+Una vez instalado Flutter, abre tu terminal y ejecuta los siguientes comandos:
+
+## Entrar a la carpeta del proyecto
+cd appvolei
+
+## Instalar las dependencias y complementos
+flutter pub get
+
+## Verificar que todo esté configurado correctamente
+flutter doctor
+
+## Ejecutar en modo debug 
+flutter run 
+
+## Generar el instalador (APK)
+flutter build apk
+
+# 3. Documentación flutter
+
+Si quieren revisar mas complementos o funcionalidades extras de flutter revisar --> https://pub.dev/ y https://docs.flutter.dev/
 
 
 Este proyecto sigue en desarrollo.
