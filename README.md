@@ -1,16 +1,25 @@
 # appvolei
 
-A new Flutter project.
+Un proyecto usando flutter
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+Primero que todo se debe instalar flutter, ya sea desde Visual Studio Code
+o recomiendo ver este video -> https://www.youtube.com/watch?v=BTubOBvfEUE&t=217s.
+Tambien recomiendo instalar Android Studio, en el mismo video muestra una configuracion 
+que no es tan necesaria pero se puede instalar de esa manera.
+Android Studio --> https://developer.android.com/studio?hl=es-419
 
-A few resources to get you started if this is your first Flutter project:
+Una vez ya instalado, se deben instalar los complementos de flutter, seguir los siguientes comandos en la terminal,
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+--> cd appvolei (posicionarse en la carpeta de la app)
+--> flutter pub get (para instalar los complementos de flutter)
+--> flutter doctor (En caso de algun error, mostrara que falta por instalar)
+--> flutter run (Con este correra la app, se puede visualizar sin problema desde algun navegador, pero recomendo emular algun telefono)
+--> flutter build apk (para crear apk)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Si quieren revisar mas complementos o funcionalidades extras de flutter revisar --> https://pub.dev/
+
+
+Este proyecto sigue en desarrollo.
+
