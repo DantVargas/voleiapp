@@ -31,39 +31,58 @@ class _CanchaPageState extends State<CanchaPage> {
   
   int puntosA = 0;
   int puntosB = 0;
-  int setsGanadosA = 0; 
-  int setsGanadosB = 0;
   int? equipoQueSaca;
 
+  // Configuración
+  int maxSets = 3; 
+  int puntosParaGanarSet = 25;
+  int puntosParaGanarUltimoSet = 15;
+  bool modoMataMata = false; 
+
+  // Estado de Sets
+  int setsGanadosA = 0;
+  int setsGanadosB = 0;
+  int setActual = 1;
+
+  String nombreEquipoA = "EQUIPO A";
+  String nombreEquipoB = "EQUIPO B";
+
+  // Historial Estructurado
+  List<List<Map<String, dynamic>>> historialSets = [[]]; 
   final List<Map<String, dynamic>> _historial = [];
 
   List<Jugador> todosLosJugadores = [
-    Jugador(dorsal: 1, posicionCancha: 4, nombre: 'Punta 1', equipoId: 1),
-    Jugador(dorsal: 2, posicionCancha: 3, nombre: 'Central 1', equipoId: 1),
-    Jugador(dorsal: 5, posicionCancha: 2, nombre: 'Armador', equipoId: 1),
-    Jugador(dorsal: 6, posicionCancha: 6, nombre: 'Central 2', equipoId: 1),
-    Jugador(dorsal: 7, posicionCancha: 1, nombre: 'Punta 2', equipoId: 1),
-    Jugador(dorsal: 8, posicionCancha: 5, nombre: 'Opuesto', equipoId: 1),
-    Jugador(dorsal: 99, posicionCancha: 0, nombre: 'Suplente A1', equipoId: 1),
-    Jugador(dorsal: 98, posicionCancha: 0, nombre: 'Libero A', equipoId: 1),
-    Jugador(dorsal: 3, posicionCancha: 4, nombre: 'Punta 1', equipoId: 2),
-    Jugador(dorsal: 4, posicionCancha: 3, nombre: 'Central 1', equipoId: 2),
-    Jugador(dorsal: 9, posicionCancha: 2, nombre: 'Armador', equipoId: 2),
-    Jugador(dorsal: 10, posicionCancha: 6, nombre: 'Libero B', equipoId: 2),
-    Jugador(dorsal: 11, posicionCancha: 1, nombre: 'Punta 2', equipoId: 2),
-    Jugador(dorsal: 12, posicionCancha: 5, nombre: 'Opuesto', equipoId: 2),
-    Jugador(dorsal: 20, posicionCancha: 0, nombre: 'Suplente B1', equipoId: 2),
+    Jugador(dorsal: 1, posicionCancha: 4, nombre: 'Jugador', equipoId: 1),
+    Jugador(dorsal: 2, posicionCancha: 3, nombre: 'Jugador', equipoId: 1),
+    Jugador(dorsal: 5, posicionCancha: 2, nombre: 'Jugador', equipoId: 1),
+    Jugador(dorsal: 6, posicionCancha: 6, nombre: 'Jugador', equipoId: 1),
+    Jugador(dorsal: 7, posicionCancha: 1, nombre: 'Jugador', equipoId: 1),
+    Jugador(dorsal: 8, posicionCancha: 5, nombre: 'Jugador', equipoId: 1),
+    Jugador(dorsal: 99, posicionCancha: 0, nombre: 'Jugador', equipoId: 1),
+    Jugador(dorsal: 98, posicionCancha: 0, nombre: 'Jugador', equipoId: 1),
+    Jugador(dorsal: 3, posicionCancha: 4, nombre: 'Jugador', equipoId: 2),
+    Jugador(dorsal: 4, posicionCancha: 3, nombre: 'Jugador', equipoId: 2),
+    Jugador(dorsal: 9, posicionCancha: 2, nombre: 'Jugador', equipoId: 2),
+    Jugador(dorsal: 10, posicionCancha: 6, nombre: 'Jugador', equipoId: 2),
+    Jugador(dorsal: 11, posicionCancha: 1, nombre: 'Jugador', equipoId: 2),
+    Jugador(dorsal: 12, posicionCancha: 5, nombre: 'Jugador', equipoId: 2),
+    Jugador(dorsal: 20, posicionCancha: 0, nombre: 'Jugador', equipoId: 2),
   ];
 
   // --- LÓGICA ---
+
   void _guardarEstado() {
     final posicionesClonadas = todosLosJugadores.map((j) => j.posicionCancha).toList();
     _historial.add({
       'puntosA': puntosA,
       'puntosB': puntosB,
+      'setsGanadosA': setsGanadosA,
+      'setsGanadosB': setsGanadosB,
+      'setActual': setActual,
       'equipoQueSaca': equipoQueSaca,
       'posiciones': posicionesClonadas,
       'partidoEmpezado': partidoEmpezado,
+      'historialSets': historialSets.map((set) => List<Map<String, dynamic>>.from(set)).toList(),
     });
   }
 
@@ -73,18 +92,26 @@ class _CanchaPageState extends State<CanchaPage> {
     setState(() {
       puntosA = estadoPrevio['puntosA'];
       puntosB = estadoPrevio['puntosB'];
+      setsGanadosA = estadoPrevio['setsGanadosA'];
+      setsGanadosB = estadoPrevio['setsGanadosB'];
+      setActual = estadoPrevio['setActual'];
       equipoQueSaca = estadoPrevio['equipoQueSaca'];
       partidoEmpezado = estadoPrevio['partidoEmpezado'];
+      historialSets = List<List<Map<String, dynamic>>>.from(
+        estadoPrevio['historialSets'].map((s) => List<Map<String, dynamic>>.from(s))
+      );
       final posiciones = estadoPrevio['posiciones'] as List<int>;
       for (int i = 0; i < todosLosJugadores.length; i++) {
         todosLosJugadores[i].posicionCancha = posiciones[i];
       }
     });
+    if (Navigator.canPop(context)) Navigator.pop(context);
   }
 
   void _sumarPunto(int id) {
     if (!partidoEmpezado) return;
     _guardarEstado();
+
     setState(() {
       if (id == 1) {
         puntosA++;
@@ -95,7 +122,26 @@ class _CanchaPageState extends State<CanchaPage> {
         if (equipoQueSaca == 1) _rotar(2);
         equipoQueSaca = 2;
       }
+
+      historialSets[setActual - 1].add({'equipo': id, 'marcador': "$puntosA - $puntosB"});
+
+      int metaPuntos = (setActual == maxSets) ? puntosParaGanarUltimoSet : puntosParaGanarSet;
+      bool setTerminado = modoMataMata 
+          ? (puntosA >= metaPuntos || puntosB >= metaPuntos)
+          : ((puntosA >= metaPuntos || puntosB >= metaPuntos) && (puntosA - puntosB).abs() >= 2);
+
+      if (setTerminado) _finalizarSet(puntosA > puntosB ? 1 : 2);
     });
+  }
+
+  void _finalizarSet(int ganadorId) {
+    if (ganadorId == 1) setsGanadosA++; else setsGanadosB++;
+    int setsParaGanar = (maxSets / 2).ceil();
+    if (setsGanadosA >= setsParaGanar || setsGanadosB >= setsParaGanar) {
+      _mostrarFinPartido(ganadorId == 1 ? nombreEquipoA : nombreEquipoB);
+    } else {
+      _mostrarAvisoSet(ganadorId == 1 ? nombreEquipoA : nombreEquipoB);
+    }
   }
 
   void _rotar(int id) {
@@ -103,6 +149,70 @@ class _CanchaPageState extends State<CanchaPage> {
     for (var j in todosLosJugadores.where((j) => j.equipoId == id && j.posicionCancha != 0)) {
       j.posicionCancha = mapa[j.posicionCancha]!;
     }
+  }
+
+  // --- DIÁLOGOS ---
+
+  void _mostrarAvisoSet(String ganador) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text("Set para $ganador"),
+        content: const Text("El marcador se reiniciará para el siguiente set."),
+        actions: [
+          TextButton(onPressed: _deshacer, child: const Text("CORREGIR", style: TextStyle(color: Colors.red))),
+          ElevatedButton(
+            onPressed: () {
+              _guardarEstado();
+              setState(() {
+                puntosA = 0; puntosB = 0; setActual++;
+                if (historialSets.length < setActual) historialSets.add([]);
+                
+                int saqueInicialPartido = _historial.firstWhere((h) => h['equipoQueSaca'] != null)['equipoQueSaca'];
+                equipoQueSaca = (setActual % 2 != 0) ? saqueInicialPartido : (saqueInicialPartido == 1 ? 2 : 1);
+              });
+              Navigator.pop(context);
+            },
+            child: const Text("Siguiente Set"),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _mostrarFinPartido(String ganador) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text("¡FIN DEL PARTIDO!"),
+        content: Text("Ganador: $ganador\nResultado: $setsGanadosA - $setsGanadosB"),
+        actions: [
+          TextButton(onPressed: _deshacer, child: const Text("CORREGIR", style: TextStyle(color: Colors.red))),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _reiniciarTodo();
+            },
+            child: const Text("Guardar y Salir"),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _reiniciarTodo() {
+    setState(() {
+      puntosA = 0; puntosB = 0;
+      setsGanadosA = 0; setsGanadosB = 0;
+      setActual = 1;
+      partidoEmpezado = false;
+      historialSets = [[]]; // Limpieza total del historial visual
+      _historial.clear();
+      equipoQueSaca = null;
+      mostrarSorteo = false;
+    });
   }
 
   // --- INTERFAZ ---
@@ -114,7 +224,6 @@ class _CanchaPageState extends State<CanchaPage> {
       appBar: AppBar(
         title: const Text("Voley Manager", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
-        elevation: 0,
         centerTitle: true,
         toolbarHeight: 45,
         leading: IconButton(
@@ -122,35 +231,23 @@ class _CanchaPageState extends State<CanchaPage> {
           onPressed: _historial.isNotEmpty ? _deshacer : null,
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.bar_chart, color: Colors.blueGrey),
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const EstadisticasPage()));
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.redAccent),
-            onPressed: () => _reiniciarConfirmacion(),
-          ),
+          IconButton(icon: const Icon(Icons.bar_chart, color: Colors.blueGrey), onPressed: () {}),
+          IconButton(icon: const Icon(Icons.refresh, color: Colors.redAccent), onPressed: _reiniciarConfirmacion),
         ],
       ),
       body: SafeArea(
         child: Column(
           children: [
             _buildModernScoreboard(),
+            _buildHistorialPorSets(), // Historial mejorado con números
             if (!partidoEmpezado)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: ElevatedButton.icon(
                   onPressed: () => setState(() => mostrarSorteo = true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
                   icon: const Icon(Icons.play_arrow),
-                  label: const Text("EMPEZAR PARTIDO", style: TextStyle(fontWeight: FontWeight.bold)),
+                  label: const Text("EMPEZAR PARTIDO"),
                 ),
               ),
             Expanded(
@@ -160,12 +257,7 @@ class _CanchaPageState extends State<CanchaPage> {
                   Expanded(
                     child: Stack(
                       children: [
-                        Center(
-                          child: CanchaView(
-                            jugadores: todosLosJugadores,
-                            onJugadorTap: _mostrarOpcionesJugador,
-                          ),
-                        ),
+                        Center(child: CanchaView(jugadores: todosLosJugadores, onJugadorTap: (j) {})),
                         if (mostrarSorteo) _buildOverlaySorteo(),
                       ],
                     ),
@@ -180,7 +272,55 @@ class _CanchaPageState extends State<CanchaPage> {
     );
   }
 
-  // --- WIDGETS DEL MARCADOR ---
+  Widget _buildHistorialPorSets() {
+    return Container(
+      height: 75, // Ajustado para dar espacio a los números
+      color: Colors.white,
+      child: ListView.builder(
+        itemCount: historialSets.length,
+        itemBuilder: (context, setIndex) {
+          if (historialSets[setIndex].isEmpty && setIndex != setActual - 1) return const SizedBox.shrink();
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("S${setIndex + 1}: ", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.blueGrey)),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Fila de números guía
+                        Row(
+                          children: List.generate(historialSets[setIndex].length, (i) => 
+                            SizedBox(
+                              width: 18, 
+                              child: Text("${i + 1}", style: const TextStyle(fontSize: 7, color: Colors.grey), textAlign: TextAlign.center)
+                            )
+                          ),
+                        ),
+                        // Fila de balones
+                        Row(
+                          children: historialSets[setIndex].map((punto) => 
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 1),
+                              child: Icon(Icons.sports_volleyball, size: 16, color: punto['equipo'] == 1 ? Colors.blue : Colors.red),
+                            )
+                          ).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   Widget _buildModernScoreboard() {
     return Container(
@@ -192,74 +332,69 @@ class _CanchaPageState extends State<CanchaPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center, 
         children: [
-          _buildScoreGroup(
-            teamName: "EQUIPO A",
-            points: puntosA,
-            color: Colors.blue,
-            isServing: equipoQueSaca == 1,
-            onAdd: () => _sumarPunto(1),
-          ),
+          _buildScoreGroup(nombreEquipoA, puntosA, Colors.blue, equipoQueSaca == 1, () => _sumarPunto(1), true),
           const SizedBox(width: 40), 
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text("SET", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 10)),
-              Text("1", style: TextStyle(color: Colors.grey.shade800, fontSize: 20, fontWeight: FontWeight.w900)),
+              Text("$setActual", style: TextStyle(color: Colors.grey.shade800, fontSize: 20, fontWeight: FontWeight.w900)),
+              Text("$setsGanadosA - $setsGanadosB", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+              const SizedBox(height: 4),
+              _buildModoBoton(),
             ],
           ),
           const SizedBox(width: 40), 
-          _buildScoreGroup(
-            teamName: "EQUIPO B",
-            points: puntosB,
-            color: Colors.red,
-            isServing: equipoQueSaca == 2,
-            onAdd: () => _sumarPunto(2),
-          ),
+          _buildScoreGroup(nombreEquipoB, puntosB, Colors.red, equipoQueSaca == 2, () => _sumarPunto(2), false),
         ],
       ),
     );
   }
 
-  Widget _buildScoreGroup({
-    required String teamName,
-    required int points,
-    required Color color,
-    required bool isServing,
-    required VoidCallback onAdd,
-  }) {
-    bool isTeamA = teamName == "EQUIPO A";
+  Widget _buildModoBoton() {
+    return GestureDetector(
+      onTap: () => setState(() => modoMataMata = !modoMataMata),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: modoMataMata ? Colors.orange.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: modoMataMata ? Colors.orange : Colors.grey.shade300),
+        ),
+        child: Text(modoMataMata ? "ORO" : "NORMAL", style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: modoMataMata ? Colors.orange : Colors.grey)),
+      ),
+    );
+  }
+
+  Widget _buildScoreGroup(String name, int pts, Color color, bool saca, VoidCallback onAdd, bool isA) {
     return Row(
       children: [
-        if (!isTeamA) _buildAddButton(onAdd, color),
+        if (!isA) _buildAddButton(onAdd, color),
         const SizedBox(width: 12),
         Column(
           children: [
-            Row(
-              children: [
-                if (isServing && isTeamA) const Icon(Icons.sports_volleyball, color: Colors.orange, size: 16),
-                const SizedBox(width: 4),
-                Text(teamName, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11)),
-                const SizedBox(width: 4),
-                if (isServing && !isTeamA) const Icon(Icons.sports_volleyball, color: Colors.orange, size: 16),
-              ],
+            GestureDetector(
+              onTap: () => _dialogoEditarNombreEquipo(isA),
+              child: Row(
+                children: [
+                  if (saca && isA) const Icon(Icons.sports_volleyball, color: Colors.orange, size: 16),
+                  const SizedBox(width: 4),
+                  Text(name, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11)),
+                  const SizedBox(width: 4),
+                  if (saca && !isA) const Icon(Icons.sports_volleyball, color: Colors.orange, size: 16),
+                ],
+              ),
             ),
-            const SizedBox(height: 4),
             Container(
+              margin: const EdgeInsets.only(top: 4),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: color.withOpacity(0.2)),
-              ),
-              child: Text(
-                "$points",
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: color),
-              ),
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+              child: Text("$pts", style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: color)),
             ),
           ],
         ),
         const SizedBox(width: 12),
-        if (isTeamA) _buildAddButton(onAdd, color),
+        if (isA) _buildAddButton(onAdd, color),
       ],
     );
   }
@@ -269,42 +404,27 @@ class _CanchaPageState extends State<CanchaPage> {
       onTap: partidoEmpezado ? onTap : null,
       child: Container(
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: partidoEmpezado ? color : Colors.grey.shade300,
-          shape: BoxShape.circle,
-          boxShadow: partidoEmpezado ? [BoxShadow(color: color.withOpacity(0.3), blurRadius: 4)] : [],
-        ),
+        decoration: BoxDecoration(color: partidoEmpezado ? color : Colors.grey.shade300, shape: BoxShape.circle),
         child: const Icon(Icons.add, color: Colors.white, size: 24),
       ),
     );
   }
 
-  // --- OTROS COMPONENTES ---
-
   Widget _buildBancaLateral(int id, String titulo, Color color) {
     final lista = todosLosJugadores.where((j) => j.equipoId == id && j.posicionCancha == 0).toList();
     return Container(
-      width: 130,
-      margin: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
+      width: 130, margin: const EdgeInsets.all(4),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(6),
-            width: double.infinity,
+            padding: const EdgeInsets.all(6), width: double.infinity,
             decoration: BoxDecoration(color: color, borderRadius: const BorderRadius.vertical(top: Radius.circular(7))),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(titulo, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                GestureDetector(
-                  onTap: () => _agregarJugadorBanca(id),
-                  child: const Icon(Icons.add_circle, color: Colors.white, size: 16),
-                )
+                const Icon(Icons.add_circle, color: Colors.white, size: 16)
               ],
             ),
           ),
@@ -314,15 +434,9 @@ class _CanchaPageState extends State<CanchaPage> {
               itemCount: lista.length,
               separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (context, i) => ListTile(
-                dense: true,
-                visualDensity: VisualDensity.compact,
-                leading: CircleAvatar(
-                  radius: 10, 
-                  backgroundColor: color.withOpacity(0.1), 
-                  child: Text("${lista[i].dorsal}", style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.bold))
-                ),
+                dense: true, visualDensity: VisualDensity.compact,
+                leading: CircleAvatar(radius: 10, backgroundColor: color.withOpacity(0.1), child: Text("${lista[i].dorsal}", style: TextStyle(fontSize: 9, color: color, fontWeight: FontWeight.bold))),
                 title: Text(lista[i].nombre ?? "", style: const TextStyle(fontSize: 10)),
-                onTap: () => _mostrarOpcionesJugador(lista[i]),
               ),
             ),
           ),
@@ -336,29 +450,34 @@ class _CanchaPageState extends State<CanchaPage> {
       color: Colors.black54,
       child: Center(
         child: Card(
+          margin: const EdgeInsets.all(20),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text("Sorteo Inicial", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                const Text("¿Quién saca primero?", style: TextStyle(color: Colors.grey)),
-                const SizedBox(height: 20),
+                const Text("Configuración Inicial", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Divider(),
                 Row(
-                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                      onPressed: () => setState(() { equipoQueSaca = 1; partidoEmpezado = true; mostrarSorteo = false; }),
-                      child: const Text("Saca A", style: TextStyle(color: Colors.white)),
+                    const Text("Sets máximos:"),
+                    DropdownButton<int>(
+                      value: maxSets,
+                      items: [3, 5].map((e) => DropdownMenuItem(value: e, child: Text("$e"))).toList(),
+                      onChanged: (val) => setState(() => maxSets = val!),
                     ),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                      onPressed: () => setState(() { equipoQueSaca = 2; partidoEmpezado = true; mostrarSorteo = false; }),
-                      child: const Text("Saca B", style: TextStyle(color: Colors.white)),
-                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Text("¿Quién saca primero?", style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.blue), onPressed: () => setState(() { equipoQueSaca = 1; partidoEmpezado = true; mostrarSorteo = false; }), child: Text("Saca $nombreEquipoA")),
+                    const SizedBox(width: 10),
+                    ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.red), onPressed: () => setState(() { equipoQueSaca = 2; partidoEmpezado = true; mostrarSorteo = false; }), child: Text("Saca $nombreEquipoB")),
                   ],
                 ),
                 TextButton(onPressed: () => setState(() => mostrarSorteo = false), child: const Text("Cancelar"))
@@ -370,140 +489,33 @@ class _CanchaPageState extends State<CanchaPage> {
     );
   }
 
+  void _dialogoEditarNombreEquipo(bool esA) {
+    final controller = TextEditingController(text: esA ? nombreEquipoA : nombreEquipoB);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Nombre del equipo"),
+        content: TextField(controller: controller, textCapitalization: TextCapitalization.characters),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
+          ElevatedButton(onPressed: () { setState(() { if (esA) nombreEquipoA = controller.text; else nombreEquipoB = controller.text; }); Navigator.pop(context); }, child: const Text("Guardar")),
+        ],
+      ),
+    );
+  }
+
   void _reiniciarConfirmacion() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Reiniciar"),
-        content: const Text("¿Quieres volver a 0-0 y reiniciar el sorteo?"),
+        content: const Text("¿Quieres volver a 0-0?"),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("No")),
-          TextButton(onPressed: () {
-            setState(() { puntosA = 0; puntosB = 0; equipoQueSaca = null; partidoEmpezado = false; _historial.clear(); });
-            Navigator.pop(context);
-          }, child: const Text("Sí")),
+          TextButton(onPressed: () { _reiniciarTodo(); Navigator.pop(context); }, child: const Text("Sí")),
         ],
       ),
     );
-  }
-
-  // --- GESTIÓN DE JUGADORES (CRUD) ---
-
-  void _mostrarOpcionesJugador(Jugador j) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 10),
-          Text("Opciones: #${j.dorsal} ${j.nombre}", style: const TextStyle(fontWeight: FontWeight.bold)),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.edit, color: Colors.orange),
-            title: const Text("Editar jugador"),
-            onTap: () { Navigator.pop(context); _dialogoEditarJugador(j); },
-          ),
-          ListTile(
-            leading: const Icon(Icons.swap_horiz, color: Colors.green),
-            title: Text(j.posicionCancha == 0 ? "Entrar a cancha" : "Mandar a banca"),
-            onTap: () { Navigator.pop(context); _seleccionarCambio(j); },
-          ),
-          if (j.posicionCancha == 0)
-            ListTile(
-              leading: const Icon(Icons.delete_forever, color: Colors.red),
-              title: const Text("Eliminar", style: TextStyle(color: Colors.red)),
-              onTap: () { Navigator.pop(context); _eliminarJugador(j); },
-            ),
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
-
-  void _dialogoEditarJugador(Jugador j) {
-    final cN = TextEditingController(text: j.nombre);
-    final cD = TextEditingController(text: j.dorsal.toString());
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text("Editar #${j.dorsal}"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min, 
-          children: [
-            TextField(controller: cN, decoration: const InputDecoration(labelText: "Nombre"), textCapitalization: TextCapitalization.words),
-            TextField(controller: cD, decoration: const InputDecoration(labelText: "Dorsal"), keyboardType: TextInputType.number),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancelar")),
-          ElevatedButton(
-            onPressed: () {
-              setState(() { j.nombre = cN.text; j.dorsal = int.tryParse(cD.text) ?? j.dorsal; });
-              Navigator.pop(context);
-            }, 
-            child: const Text("Guardar")
-          )
-        ],
-      ),
-    );
-  }
-
-  void _seleccionarCambio(Jugador jSel) {
-    final bool esS = jSel.posicionCancha == 0;
-    final lista = todosLosJugadores.where((j) => j.equipoId == jSel.equipoId && (esS ? j.posicionCancha != 0 : j.posicionCancha == 0)).toList();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(esS ? "Entra por..." : "Sale por..."),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: lista.length,
-            itemBuilder: (context, i) => ListTile(
-              leading: CircleAvatar(backgroundColor: jSel.equipoId == 1 ? Colors.blue : Colors.red, child: Text("${lista[i].dorsal}", style: const TextStyle(color: Colors.white, fontSize: 12))),
-              title: Text(lista[i].nombre ?? ""),
-              onTap: () {
-                _guardarEstado();
-                setState(() {
-                  int pos = esS ? lista[i].posicionCancha : jSel.posicionCancha;
-                  if (esS) { lista[i].posicionCancha = 0; jSel.posicionCancha = pos; }
-                  else { jSel.posicionCancha = 0; lista[i].posicionCancha = pos; }
-                });
-                Navigator.pop(context);
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _agregarJugadorBanca(int id) {
-    final cN = TextEditingController();
-    final cD = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Nuevo Suplente"),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(controller: cN, decoration: const InputDecoration(labelText: "Nombre"), textCapitalization: TextCapitalization.words),
-          TextField(controller: cD, decoration: const InputDecoration(labelText: "Dorsal"), keyboardType: TextInputType.number),
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cerrar")),
-          ElevatedButton(onPressed: () {
-            setState(() => todosLosJugadores.add(Jugador(nombre: cN.text, dorsal: int.tryParse(cD.text) ?? 0, posicionCancha: 0, equipoId: id)));
-            Navigator.pop(context);
-          }, child: const Text("Agregar"))
-        ],
-      ),
-    );
-  }
-
-  void _eliminarJugador(Jugador j) {
-    setState(() => todosLosJugadores.remove(j));
   }
 }
 
@@ -513,7 +525,7 @@ class EstadisticasPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Estadísticas")),
-      body: const Center(child: Text("Módulo de Estadísticas Próximamente")),
+      body: const Center(child: Text("Módulo de Estadísticas")),
     );
   }
 }
