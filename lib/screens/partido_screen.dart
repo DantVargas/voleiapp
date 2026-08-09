@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../provider/partido_provider.dart';
 import '../models/jugador_model.dart';
+import '../models/tipo_punto.dart';
 import '../widgets/cancha_view.dart';
 import '../widgets/marcador_widget.dart';
 import '../widgets/banca_widget.dart';
@@ -11,7 +12,10 @@ import 'partido_detalle_screen.dart';
 import 'dart:async';
 
 class PartidoScreen extends StatelessWidget {
-  const PartidoScreen({super.key});
+  /// En Modo Pro, cada punto pide tipo de jugada y jugador antes de anotar.
+  final bool modoPro;
+
+  const PartidoScreen({super.key, this.modoPro = false});
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +46,10 @@ class PartidoScreen extends StatelessWidget {
                     onPressed: partido.hayHistorial ? () => partido.deshacer() : null,
                   ),
                   const Spacer(),
-                  const MarcadorWidget(), // El indicador de saque ahora está aquí dentro
+                  MarcadorWidget(
+                    onPuntoPersonalizado:
+                        modoPro ? (equipoId) => _mostrarSelectorPunto(context, equipoId) : null,
+                  ), // El indicador de saque ahora está aquí dentro
                   const Spacer(),
                   // Botón de AJUSTES que reemplaza al de reiniciar directo
                   IconButton(
@@ -288,6 +295,177 @@ class PartidoScreen extends StatelessWidget {
         }
       ),
     ).then((_) => timer?.cancel());
+  }
+
+  // --- MODO PRO: SELECCIÓN DE TIPO DE PUNTO Y JUGADOR ---
+
+  void _mostrarSelectorPunto(BuildContext context, int equipoId) {
+    final partido = context.read<PartidoProvider>();
+    final nombreEquipo = equipoId == 1 ? partido.nombreEquipoA : partido.nombreEquipoB;
+    final equipoSaca = partido.equipoQueSaca;
+
+    // Un Ace solo es posible si este equipo está sacando; un "error de saque
+    // rival" solo es posible si el rival es quien está sacando. Si no
+    // sabemos quién saca (equipoSaca == null) no filtramos nada.
+    final tipos = TipoPunto.values.where((tipo) {
+      if (equipoSaca == null) return true;
+      if (tipo == TipoPunto.saque) return equipoSaca == equipoId;
+      if (tipo == TipoPunto.errorSaqueRival) return equipoSaca != equipoId;
+      return true;
+    }).toList();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text(
+                "Punto para $nombreEquipo — ¿cómo fue?",
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+            ),
+            ...tipos.map((tipo) => ListTile(
+                  dense: true,
+                  leading: Icon(
+                    tipo.icono,
+                    color: tipo == TipoPunto.otro
+                        ? Colors.blueGrey
+                        : (tipo.esPositivo ? Colors.green.shade700 : Colors.red.shade700),
+                  ),
+                  title: Text(tipo.label),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _procesarTipoPunto(context, equipoId: equipoId, tipo: tipo);
+                  },
+                )),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Resuelve el jugador para el tipo de punto elegido. Cuando la regla del
+  /// vóley determina un único jugador posible (Ace o error de saque rival:
+  /// siempre lo hace/sufre quien está en la posición 1), se anota directo
+  /// sin preguntar; en el resto se abre el selector ya filtrado.
+  void _procesarTipoPunto(BuildContext context, {required int equipoId, required TipoPunto tipo}) {
+    final partido = context.read<PartidoProvider>();
+    final equipoRival = equipoId == 1 ? 2 : 1;
+
+    if (tipo == TipoPunto.otro) {
+      partido.sumarPunto(equipoId, tipo: tipo);
+      return;
+    }
+
+    if (tipo == TipoPunto.saque) {
+      final sacador = _jugadorEnPosicion(partido, equipoId, 1);
+      if (sacador != null) {
+        partido.sumarPunto(equipoId, tipo: tipo, jugador: sacador);
+        _mostrarConfirmacion(context, "Ace de #${sacador.dorsal} ${sacador.nombre ?? ''}");
+        return;
+      }
+    }
+
+    if (tipo == TipoPunto.errorSaqueRival) {
+      final sacador = _jugadorEnPosicion(partido, equipoRival, 1);
+      if (sacador != null) {
+        partido.sumarPunto(equipoId, tipo: tipo, jugador: sacador);
+        _mostrarConfirmacion(context, "Error de saque de #${sacador.dorsal} ${sacador.nombre ?? ''}");
+        return;
+      }
+    }
+
+    // Si el punto fue por una acción positiva, el jugador es del equipo que
+    // anota; si fue por un error, es del equipo rival.
+    final equipoJugador = tipo.esPositivo ? equipoId : equipoRival;
+    var candidatos =
+        partido.todosLosJugadores.where((j) => j.equipoId == equipoJugador && j.estaEnCancha).toList();
+
+    // Solo los delanteros (posiciones 2, 3 y 4) pueden bloquear.
+    if (tipo == TipoPunto.bloqueo) {
+      candidatos = candidatos.where((j) => [2, 3, 4].contains(j.posicionCancha)).toList();
+    }
+
+    candidatos.sort((a, b) => a.posicionCancha.compareTo(b.posicionCancha));
+
+    _mostrarSelectorJugador(context, equipoId: equipoId, tipo: tipo, candidatos: candidatos);
+  }
+
+  Jugador? _jugadorEnPosicion(PartidoProvider partido, int equipoId, int posicion) {
+    for (final j in partido.todosLosJugadores) {
+      if (j.equipoId == equipoId && j.posicionCancha == posicion) return j;
+    }
+    return null;
+  }
+
+  void _mostrarConfirmacion(BuildContext context, String mensaje) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(mensaje), duration: const Duration(seconds: 2)),
+    );
+  }
+
+  void _mostrarSelectorJugador(
+    BuildContext context, {
+    required int equipoId,
+    required TipoPunto tipo,
+    required List<Jugador> candidatos,
+  }) {
+    final partido = context.read<PartidoProvider>();
+
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text(
+                tipo.esPositivo ? "¿Quién hizo el punto?" : "¿Quién cometió el error?",
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+            ),
+            if (candidatos.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  "No hay jugadores habilitados en cancha para esta jugada.",
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ),
+            ...candidatos.map((j) => ListTile(
+                  dense: true,
+                  leading: CircleAvatar(
+                    radius: 14,
+                    child: Text('${j.dorsal}', style: const TextStyle(fontSize: 11)),
+                  ),
+                  title: Text(j.nombre ?? 'Jugador'),
+                  subtitle: Text('Posición ${j.posicionCancha}', style: const TextStyle(fontSize: 10)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    partido.sumarPunto(equipoId, tipo: tipo, jugador: j);
+                  },
+                )),
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.remove_circle_outline, size: 20, color: Colors.grey),
+              title: const Text("Sin especificar jugador"),
+              onTap: () {
+                Navigator.pop(ctx);
+                partido.sumarPunto(equipoId, tipo: tipo);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   void _mostrarOpcionesJugador(BuildContext context, Jugador jugador) {

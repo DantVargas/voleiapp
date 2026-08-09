@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/jugador_model.dart';
+import '../models/tipo_punto.dart';
 import '../database/db_manager.dart';
 
 class PartidoProvider extends ChangeNotifier {
@@ -97,7 +98,10 @@ class PartidoProvider extends ChangeNotifier {
   // -------------------------------------------------------
   // LÓGICA DE JUEGO Y SETS
   // -------------------------------------------------------
-  void sumarPunto(int equipoId) {
+  /// [tipo] y [jugador] son opcionales: Modo Cancha los omite, Modo Pro los
+  /// completa para poder atribuir el punto a un jugador y a un motivo
+  /// (usados luego para calcular las estadísticas reales al guardar).
+  void sumarPunto(int equipoId, {TipoPunto? tipo, Jugador? jugador}) {
     if (!partidoEmpezado) return;
     guardarEstado();
 
@@ -114,6 +118,10 @@ class PartidoProvider extends ChangeNotifier {
     historialSets[setActual - 1].add({
       'equipo': equipoId,
       'marcador': '$puntosA - $puntosB',
+      if (tipo != null) 'tipo': tipo.name,
+      if (jugador != null) 'jugadorDorsal': jugador.dorsal,
+      if (jugador != null) 'jugadorNombre': jugador.nombre,
+      if (jugador != null) 'jugadorEquipoId': jugador.equipoId,
     });
 
     notifyListeners();
@@ -308,6 +316,11 @@ class PartidoProvider extends ChangeNotifier {
     await db.actualizarMarcadorSets(partidoId, setsGanadosA, setsGanadosB);
     await db.finalizarPartido(partidoId);
 
+    // Acumuladores de estadísticas por jugador (clave: "dorsal-equipoId"),
+    // se rellenan con los puntos detallados que haya registrado Modo Pro.
+    final Map<String, Map<String, int>> statsPorJugador = {};
+    String claveJugador(int dorsal, int equipoId) => '$dorsal-$equipoId';
+
     for (int i = 0; i < historialSets.length; i++) {
       final set = historialSets[i];
       if (set.isEmpty) continue;
@@ -315,22 +328,59 @@ class PartidoProvider extends ChangeNotifier {
       final pB = set.where((p) => p['equipo'] == 2).length;
       final setId = await db.crearSet(partidoId, i + 1);
       await db.actualizarPuntosSet(setId, pA, pB);
+
+      for (final punto in set) {
+        final tipoNombre = punto['tipo'] as String?;
+        if (tipoNombre == null) continue; // punto de Modo Cancha, sin detalle
+
+        final tipo = TipoPuntoInfo.fromNombre(tipoNombre);
+        await db.insertarPuntoPro({
+          'partido_id': partidoId,
+          'numero_set': i + 1,
+          'equipo_id': punto['equipo'],
+          'tipo': tipoNombre,
+          'jugador_dorsal': punto['jugadorDorsal'],
+          'jugador_nombre': punto['jugadorNombre'],
+          'jugador_equipo_id': punto['jugadorEquipoId'],
+          'marcador': punto['marcador'],
+        });
+
+        final campo = tipo.campoEstadistica;
+        final dorsal = punto['jugadorDorsal'] as int?;
+        final jugadorEquipoId = punto['jugadorEquipoId'] as int?;
+        if (campo == null || dorsal == null || jugadorEquipoId == null) continue;
+
+        final clave = claveJugador(dorsal, jugadorEquipoId);
+        final stats = statsPorJugador.putIfAbsent(clave, () => {
+              'aces': 0,
+              'errores_saque': 0,
+              'ataques': 0,
+              'errores_ataque': 0,
+              'bloqueos': 0,
+              'recepciones': 0,
+              'errores_recepcion': 0,
+            });
+        stats[campo] = (stats[campo] ?? 0) + 1;
+      }
     }
 
-    // Pre-populamos estadísticas vacías para cada jugador actual
+    // Guardamos una fila de estadísticas por cada jugador actual, usando los
+    // valores reales acumulados de Modo Pro (o ceros si no hubo detalle).
     for (final jugador in todosLosJugadores) {
+      final clave = claveJugador(jugador.dorsal, jugador.equipoId);
+      final stats = statsPorJugador[clave];
       await db.insertarEstadistica({
         'partido_id': partidoId,
         'jugador_nombre': jugador.nombre ?? 'Jugador',
         'dorsal': jugador.dorsal,
         'equipo_id': jugador.equipoId,
-        'aces': 0,
-        'errores_saque': 0,
-        'ataques': 0,
-        'errores_ataque': 0,
-        'bloqueos': 0,
-        'recepciones': 0,
-        'errores_recepcion': 0,
+        'aces': stats?['aces'] ?? 0,
+        'errores_saque': stats?['errores_saque'] ?? 0,
+        'ataques': stats?['ataques'] ?? 0,
+        'errores_ataque': stats?['errores_ataque'] ?? 0,
+        'bloqueos': stats?['bloqueos'] ?? 0,
+        'recepciones': stats?['recepciones'] ?? 0,
+        'errores_recepcion': stats?['errores_recepcion'] ?? 0,
       });
     }
 

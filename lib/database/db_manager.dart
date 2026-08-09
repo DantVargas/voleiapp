@@ -22,7 +22,7 @@ class DBManager {
     String path = join(await getDatabasesPath(), 'voleiapp.db');
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _crearTablas,
       onUpgrade: _migrar,
     );
@@ -90,6 +90,21 @@ class DBManager {
         FOREIGN KEY (partido_id) REFERENCES partidos(id) ON DELETE CASCADE
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE puntos_pro (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        partido_id INTEGER NOT NULL,
+        numero_set INTEGER NOT NULL,
+        equipo_id INTEGER NOT NULL,
+        tipo TEXT NOT NULL,
+        jugador_dorsal INTEGER,
+        jugador_nombre TEXT,
+        jugador_equipo_id INTEGER,
+        marcador TEXT NOT NULL,
+        FOREIGN KEY (partido_id) REFERENCES partidos(id) ON DELETE CASCADE
+      )
+    ''');
   }
 
   Future<void> _migrar(Database db, int oldVersion, int newVersion) async {
@@ -109,6 +124,22 @@ class DBManager {
           bloqueos INTEGER NOT NULL DEFAULT 0,
           recepciones INTEGER NOT NULL DEFAULT 0,
           errores_recepcion INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY (partido_id) REFERENCES partidos(id) ON DELETE CASCADE
+        )
+      ''');
+    }
+    if (oldVersion < 4) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS puntos_pro (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          partido_id INTEGER NOT NULL,
+          numero_set INTEGER NOT NULL,
+          equipo_id INTEGER NOT NULL,
+          tipo TEXT NOT NULL,
+          jugador_dorsal INTEGER,
+          jugador_nombre TEXT,
+          jugador_equipo_id INTEGER,
+          marcador TEXT NOT NULL,
           FOREIGN KEY (partido_id) REFERENCES partidos(id) ON DELETE CASCADE
         )
       ''');
@@ -295,5 +326,24 @@ class DBManager {
   Future<void> eliminarEstadistica(int id) async {
     final db = await database;
     await db.delete('estadisticas', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // -------------------------------------------------------
+  // PUNTOS PRO (detalle punto a punto de Modo Pro)
+  // -------------------------------------------------------
+
+  Future<int> insertarPuntoPro(Map<String, dynamic> row) async {
+    final db = await database;
+    return await db.insert('puntos_pro', row);
+  }
+
+  Future<List<Map<String, dynamic>>> obtenerPuntosProPorPartido(int partidoId) async {
+    final db = await database;
+    return await db.query(
+      'puntos_pro',
+      where: 'partido_id = ?',
+      whereArgs: [partidoId],
+      orderBy: 'id ASC',
+    );
   }
 }

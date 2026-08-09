@@ -3,7 +3,12 @@ import 'package:provider/provider.dart';
 import '../provider/partido_provider.dart';
 
 class MarcadorWidget extends StatelessWidget {
-  const MarcadorWidget({super.key});
+  /// Si se provee, se llama en vez de `partido.sumarPunto(equipoId)` al
+  /// tocar el botón "+" — usado por Modo Pro para abrir el selector de
+  /// tipo de punto / jugador antes de anotar.
+  final void Function(int equipoId)? onPuntoPersonalizado;
+
+  const MarcadorWidget({super.key, this.onPuntoPersonalizado});
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +29,7 @@ class MarcadorWidget extends StatelessWidget {
             nombre: partido.nombreEquipoA,
             puntos: partido.puntosA,
             color: Colors.blue,
-            onAdd: () => partido.sumarPunto(1),
+            onAdd: () => onPuntoPersonalizado != null ? onPuntoPersonalizado!(1) : partido.sumarPunto(1),
             esIzquierda: true,
             tieneSaque: partido.equipoQueSaca == 1,
           ),
@@ -47,7 +52,7 @@ class MarcadorWidget extends StatelessWidget {
             nombre: partido.nombreEquipoB,
             puntos: partido.puntosB,
             color: Colors.red,
-            onAdd: () => partido.sumarPunto(2),
+            onAdd: () => onPuntoPersonalizado != null ? onPuntoPersonalizado!(2) : partido.sumarPunto(2),
             esIzquierda: false,
             tieneSaque: partido.equipoQueSaca == 2,
           ),

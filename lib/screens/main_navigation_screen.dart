@@ -17,7 +17,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     const PartidoScreen(),
     const EstadisticasScreen(),
     const HistorialScreen(),
-    const Center(child: Text("Próximamente: Modo Pro")),
+    const PartidoScreen(modoPro: true),
   ];
 
   void _onItemTapped(int index) {
