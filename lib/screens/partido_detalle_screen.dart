@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../database/db_manager.dart';
+import '../services/api_client.dart';
 import '../models/partido_model.dart';
 import '../models/set_model.dart';
 import '../models/estadistica_model.dart';
@@ -18,7 +18,7 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
   List<SetPartido> _sets = [];
   List<Estadistica> _stats = [];
   bool _cargando = true;
-  final _db = DBManager();
+  final _api = ApiClient();
 
   @override
   void initState() {
@@ -28,15 +28,24 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
 
   Future<void> _cargarDatos() async {
     setState(() => _cargando = true);
-    final pMap = await _db.obtenerPartido(widget.partidoId);
-    final sRows = await _db.obtenerSetsPorPartido(widget.partidoId);
-    final eRows = await _db.obtenerEstadisticasPorPartido(widget.partidoId);
-    setState(() {
-      _partido = pMap != null ? Partido.fromMap(pMap) : null;
-      _sets = sRows.map(SetPartido.fromMap).toList();
-      _stats = eRows.map(Estadistica.fromMap).toList();
-      _cargando = false;
-    });
+    try {
+      final detalle = await _api.obtenerPartidoDetalle(widget.partidoId);
+      final sRows = (detalle?['sets'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final eRows = (detalle?['estadisticas'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      setState(() {
+        _partido = detalle != null ? Partido.fromMap(detalle) : null;
+        _sets = sRows.map(SetPartido.fromMap).toList();
+        _stats = eRows.map(Estadistica.fromMap).toList();
+        _cargando = false;
+      });
+    } catch (_) {
+      setState(() => _cargando = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("No se pudo conectar con el servidor")),
+        );
+      }
+    }
   }
 
   // -------------------------------------------------------
@@ -78,7 +87,7 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
           ElevatedButton(
             onPressed: () async {
-              await _db.actualizarPartido(widget.partidoId, {
+              await _api.actualizarPartido(widget.partidoId, {
                 'nombre_equipo_a': ctrlA.text.trim().isNotEmpty ? ctrlA.text.trim() : _partido!.nombreEquipoA,
                 'nombre_equipo_b': ctrlB.text.trim().isNotEmpty ? ctrlB.text.trim() : _partido!.nombreEquipoB,
                 'notas': ctrlNotas.text.trim().isNotEmpty ? ctrlNotas.text.trim() : null,
@@ -134,7 +143,7 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
             onPressed: () async {
               final pA = int.tryParse(ctrlA.text) ?? set.puntosA;
               final pB = int.tryParse(ctrlB.text) ?? set.puntosB;
-              await _db.actualizarPuntosSet(set.id!, pA, pB);
+              await _api.actualizarPuntosSet(set.id!, pA, pB);
               if (ctx.mounted) Navigator.pop(ctx);
               _cargarDatos();
             },
@@ -223,7 +232,7 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
                   ),
                 );
                 if (confirmar == true && e.id != null) {
-                  await _db.eliminarEstadistica(e.id!);
+                  await _api.eliminarEstadistica(e.id!);
                   if (ctx.mounted) Navigator.pop(ctx);
                   _cargarDatos();
                 }
@@ -232,7 +241,7 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                await _db.actualizarEstadistica(e.id!, {
+                await _api.actualizarEstadistica(e.id!, {
                   'aces': valores['aces'],
                   'errores_saque': valores['errores_saque'],
                   'ataques': valores['ataques'],
@@ -265,47 +274,48 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
           title: const Text("Agregar jugador"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: ctrlNombre,
-                decoration: const InputDecoration(labelText: "Nombre"),
-              ),
-              TextField(
-                controller: ctrlDorsal,
-                decoration: const InputDecoration(labelText: "Dorsal"),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Text("Equipo:", style: TextStyle(fontSize: 13)),
-                  const SizedBox(width: 12),
-                  ChoiceChip(
-                    label: Text(_partido?.nombreEquipoA ?? 'A'),
-                    selected: equipoSeleccionado == 1,
-                    selectedColor: Colors.blue.shade100,
-                    onSelected: (_) => setS(() => equipoSeleccionado = 1),
-                  ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: Text(_partido?.nombreEquipoB ?? 'B'),
-                    selected: equipoSeleccionado == 2,
-                    selectedColor: Colors.red.shade100,
-                    onSelected: (_) => setS(() => equipoSeleccionado = 2),
-                  ),
-                ],
-              ),
-            ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: ctrlNombre,
+                  decoration: const InputDecoration(labelText: "Nombre"),
+                ),
+                TextField(
+                  controller: ctrlDorsal,
+                  decoration: const InputDecoration(labelText: "Dorsal"),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Text("Equipo:", style: TextStyle(fontSize: 13)),
+                    const SizedBox(width: 12),
+                    ChoiceChip(
+                      label: Text(_partido?.nombreEquipoA ?? 'A'),
+                      selected: equipoSeleccionado == 1,
+                      selectedColor: Colors.blue.shade100,
+                      onSelected: (_) => setS(() => equipoSeleccionado = 1),
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: Text(_partido?.nombreEquipoB ?? 'B'),
+                      selected: equipoSeleccionado == 2,
+                      selectedColor: Colors.red.shade100,
+                      onSelected: (_) => setS(() => equipoSeleccionado = 2),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
             ElevatedButton(
               onPressed: () async {
                 if (ctrlNombre.text.trim().isEmpty) return;
-                await _db.insertarEstadistica({
-                  'partido_id': widget.partidoId,
+                await _api.agregarEstadistica(widget.partidoId, {
                   'jugador_nombre': ctrlNombre.text.trim(),
                   'dorsal': int.tryParse(ctrlDorsal.text) ?? 0,
                   'equipo_id': equipoSeleccionado,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/jugador_model.dart';
 import '../models/tipo_punto.dart';
-import '../database/db_manager.dart';
+import '../services/api_client.dart';
 
 class PartidoProvider extends ChangeNotifier {
   // -------------------------------------------------------
@@ -101,7 +101,12 @@ class PartidoProvider extends ChangeNotifier {
   /// [tipo] y [jugador] son opcionales: Modo Cancha los omite, Modo Pro los
   /// completa para poder atribuir el punto a un jugador y a un motivo
   /// (usados luego para calcular las estadísticas reales al guardar).
-  void sumarPunto(int equipoId, {TipoPunto? tipo, Jugador? jugador}) {
+  /// [complejo] es el número de toque/ataque del rally que terminó el punto
+  /// (K1 = ataque tras recepción del saque, K2 = contraataque tras defender
+  /// el K1, etc.; 5 = "K5+ / rally largo"). Solo aplica a jugadas de rally
+  /// (ataque, bloqueo, error de ataque/recepción rival) — un ace o un error
+  /// de saque terminan el punto antes de que exista un K.
+  void sumarPunto(int equipoId, {TipoPunto? tipo, Jugador? jugador, int? complejo}) {
     if (!partidoEmpezado) return;
     guardarEstado();
 
@@ -122,6 +127,7 @@ class PartidoProvider extends ChangeNotifier {
       if (jugador != null) 'jugadorDorsal': jugador.dorsal,
       if (jugador != null) 'jugadorNombre': jugador.nombre,
       if (jugador != null) 'jugadorEquipoId': jugador.equipoId,
+      if (complejo != null) 'complejo': complejo,
     });
 
     notifyListeners();
@@ -305,16 +311,8 @@ class PartidoProvider extends ChangeNotifier {
   // PERSISTENCIA EN BASE DE DATOS
   // -------------------------------------------------------
   Future<int> guardarPartido({String notas = ''}) async {
-    final db = DBManager();
-
-    final partidoId = await db.crearPartido(
-      nombreEquipoA: nombreEquipoA,
-      nombreEquipoB: nombreEquipoB,
-      notas: notas.isNotEmpty ? notas : null,
-    );
-
-    await db.actualizarMarcadorSets(partidoId, setsGanadosA, setsGanadosB);
-    await db.finalizarPartido(partidoId);
+    final List<Map<String, dynamic>> setsPayload = [];
+    final List<Map<String, dynamic>> puntosPayload = [];
 
     // Acumuladores de estadísticas por jugador (clave: "dorsal-equipoId"),
     // se rellenan con los puntos detallados que haya registrado Modo Pro.
@@ -326,22 +324,21 @@ class PartidoProvider extends ChangeNotifier {
       if (set.isEmpty) continue;
       final pA = set.where((p) => p['equipo'] == 1).length;
       final pB = set.where((p) => p['equipo'] == 2).length;
-      final setId = await db.crearSet(partidoId, i + 1);
-      await db.actualizarPuntosSet(setId, pA, pB);
+      setsPayload.add({'numero_set': i + 1, 'puntos_a': pA, 'puntos_b': pB});
 
       for (final punto in set) {
         final tipoNombre = punto['tipo'] as String?;
         if (tipoNombre == null) continue; // punto de Modo Cancha, sin detalle
 
         final tipo = TipoPuntoInfo.fromNombre(tipoNombre);
-        await db.insertarPuntoPro({
-          'partido_id': partidoId,
+        puntosPayload.add({
           'numero_set': i + 1,
           'equipo_id': punto['equipo'],
           'tipo': tipoNombre,
           'jugador_dorsal': punto['jugadorDorsal'],
           'jugador_nombre': punto['jugadorNombre'],
           'jugador_equipo_id': punto['jugadorEquipoId'],
+          'complejo': punto['complejo'],
           'marcador': punto['marcador'],
         });
 
@@ -364,13 +361,12 @@ class PartidoProvider extends ChangeNotifier {
       }
     }
 
-    // Guardamos una fila de estadísticas por cada jugador actual, usando los
-    // valores reales acumulados de Modo Pro (o ceros si no hubo detalle).
-    for (final jugador in todosLosJugadores) {
+    // Una fila de estadísticas por cada jugador actual, con los valores
+    // reales acumulados de Modo Pro (o ceros si no hubo detalle).
+    final estadisticasPayload = todosLosJugadores.map((jugador) {
       final clave = claveJugador(jugador.dorsal, jugador.equipoId);
       final stats = statsPorJugador[clave];
-      await db.insertarEstadistica({
-        'partido_id': partidoId,
+      return {
         'jugador_nombre': jugador.nombre ?? 'Jugador',
         'dorsal': jugador.dorsal,
         'equipo_id': jugador.equipoId,
@@ -381,10 +377,19 @@ class PartidoProvider extends ChangeNotifier {
         'bloqueos': stats?['bloqueos'] ?? 0,
         'recepciones': stats?['recepciones'] ?? 0,
         'errores_recepcion': stats?['errores_recepcion'] ?? 0,
-      });
-    }
+      };
+    }).toList();
 
-    return partidoId;
+    return ApiClient().guardarPartido(
+      nombreEquipoA: nombreEquipoA,
+      nombreEquipoB: nombreEquipoB,
+      notas: notas,
+      setsA: setsGanadosA,
+      setsB: setsGanadosB,
+      sets: setsPayload,
+      puntos: puntosPayload,
+      estadisticas: estadisticasPayload,
+    );
   }
 
   void abrirSorteo() {

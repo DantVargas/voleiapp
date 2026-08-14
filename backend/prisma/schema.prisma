@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Replica solo lo que el flujo real de la app persiste hoy en SQLite
+// (ver lib/database/db_manager.dart del proyecto Flutter). Los campos usan
+// @map a snake_case para que el JSON serializado coincida con las claves
+// que ya esperan los modelos Dart (fromMap/toMap), sin tocarlos.
+
+model Partido {
+  id            Int           @id @default(autoincrement())
+  nombreEquipoA String        @map("nombre_equipo_a")
+  nombreEquipoB String        @map("nombre_equipo_b")
+  fecha         DateTime      @default(now())
+  setsA         Int           @default(0) @map("sets_a")
+  setsB         Int           @default(0) @map("sets_b")
+  estado        String        @default("en_curso")
+  notas         String?
+  sets          SetPartido[]
+  estadisticas  Estadistica[]
+  puntos        PuntoPro[]
+
+  @@map("partidos")
+}
+
+model SetPartido {
+  id        Int     @id @default(autoincrement())
+  partidoId Int     @map("partido_id")
+  numeroSet Int     @map("numero_set")
+  puntosA   Int     @default(0) @map("puntos_a")
+  puntosB   Int     @default(0) @map("puntos_b")
+  partido   Partido @relation(fields: [partidoId], references: [id], onDelete: Cascade)
+
+  @@map("sets")
+}
+
+model Estadistica {
+  id               Int     @id @default(autoincrement())
+  partidoId        Int     @map("partido_id")
+  jugadorNombre    String  @map("jugador_nombre")
+  dorsal           Int     @default(0)
+  equipoId         Int     @map("equipo_id")
+  aces             Int     @default(0)
+  erroresSaque     Int     @default(0) @map("errores_saque")
+  ataques          Int     @default(0)
+  erroresAtaque    Int     @default(0) @map("errores_ataque")
+  bloqueos         Int     @default(0)
+  recepciones      Int     @default(0)
+  erroresRecepcion Int     @default(0) @map("errores_recepcion")
+  partido          Partido @relation(fields: [partidoId], references: [id], onDelete: Cascade)
+
+  @@map("estadisticas")
+}
+
+model PuntoPro {
+  id              Int      @id @default(autoincrement())
+  partidoId       Int      @map("partido_id")
+  numeroSet       Int      @map("numero_set")
+  equipoId        Int      @map("equipo_id")
+  tipo            String
+  jugadorDorsal   Int?     @map("jugador_dorsal")
+  jugadorNombre   String?  @map("jugador_nombre")
+  jugadorEquipoId Int?     @map("jugador_equipo_id")
+  complejo        Int?
+  marcador        String
+  partido         Partido  @relation(fields: [partidoId], references: [id], onDelete: Cascade)
+
+  @@map("puntos_pro")
+}

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../database/db_manager.dart';
+import '../services/api_client.dart';
 import '../models/partido_model.dart';
 import 'partido_detalle_screen.dart';
 
@@ -22,11 +22,20 @@ class _HistorialScreenState extends State<HistorialScreen> {
 
   Future<void> _cargarPartidos() async {
     setState(() => _cargando = true);
-    final rows = await DBManager().obtenerPartidos();
-    setState(() {
-      _partidos = rows.map(Partido.fromMap).toList();
-      _cargando = false;
-    });
+    try {
+      final rows = await ApiClient().obtenerPartidos();
+      setState(() {
+        _partidos = rows.map(Partido.fromMap).toList();
+        _cargando = false;
+      });
+    } catch (_) {
+      setState(() => _cargando = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("No se pudo conectar con el servidor")),
+        );
+      }
+    }
   }
 
   Future<void> _eliminarPartido(Partido partido) async {
@@ -48,8 +57,16 @@ class _HistorialScreenState extends State<HistorialScreen> {
     );
 
     if (confirmar == true && partido.id != null) {
-      await DBManager().eliminarPartido(partido.id!);
-      _cargarPartidos();
+      try {
+        await ApiClient().eliminarPartido(partido.id!);
+        _cargarPartidos();
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("No se pudo eliminar: revisá tu conexión")),
+          );
+        }
+      }
     }
   }
 

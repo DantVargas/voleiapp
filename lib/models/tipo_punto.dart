@@ -77,4 +77,45 @@ extension TipoPuntoInfo on TipoPunto {
 
   static TipoPunto fromNombre(String nombre) =>
       TipoPunto.values.firstWhere((t) => t.name == nombre, orElse: () => TipoPunto.otro);
+
+  /// Nombre corto para leyendas de gráficos (donde el label completo no entra).
+  String get labelCorto {
+    switch (this) {
+      case TipoPunto.ataque:
+        return 'Ataque';
+      case TipoPunto.saque:
+        return 'Ace';
+      case TipoPunto.bloqueo:
+        return 'Bloqueo';
+      case TipoPunto.errorSaqueRival:
+        return 'Err. saque riv.';
+      case TipoPunto.errorAtaqueRival:
+        return 'Err. ataque riv.';
+      case TipoPunto.errorRecepcionRival:
+        return 'Err. recep. riv.';
+      case TipoPunto.otro:
+        return 'Otro';
+    }
+  }
+
+  /// Color categórico fijo (identidad, no valor) usado en gráficos y leyendas.
+  /// El orden de asignación es fijo — nunca se reordena según los datos.
+  Color get colorCategoria {
+    switch (this) {
+      case TipoPunto.ataque:
+        return const Color(0xFF2A78D6); // azul
+      case TipoPunto.saque:
+        return const Color(0xFFEB6834); // naranja
+      case TipoPunto.bloqueo:
+        return const Color(0xFF1BAF7A); // aqua
+      case TipoPunto.errorSaqueRival:
+        return const Color(0xFFEDA100); // amarillo
+      case TipoPunto.errorAtaqueRival:
+        return const Color(0xFFE87BA4); // magenta
+      case TipoPunto.errorRecepcionRival:
+        return const Color(0xFF008300); // verde
+      case TipoPunto.otro:
+        return const Color(0xFF4A3AA7); // violeta
+    }
+  }
 }

@@ -21,7 +21,9 @@ class BancaWidget extends StatelessWidget {
     final lista = partido.jugadoresDeBanca(equipoId);
 
     return Container(
-      width: 80, // Ancho reducido para modo horizontal
+      // Sin ancho fijo: ocupa todo el panel lateral que le da PartidoScreen,
+      // que a su vez se calcula según el ancho real de la pantalla.
+      width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.9),
@@ -115,12 +117,14 @@ class BancaWidget extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(jugador == null ? "Nuevo Jugador" : "Editar Jugador"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: "Nombre")),
-            TextField(controller: dorsalCtrl, decoration: const InputDecoration(labelText: "Dorsal"), keyboardType: TextInputType.number),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: "Nombre")),
+              TextField(controller: dorsalCtrl, decoration: const InputDecoration(labelText: "Dorsal"), keyboardType: TextInputType.number),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),

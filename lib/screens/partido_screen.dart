@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 import '../provider/partido_provider.dart';
 import '../models/jugador_model.dart';
 import '../models/tipo_punto.dart';
+import '../models/complejo_punto.dart';
 import '../widgets/cancha_view.dart';
 import '../widgets/marcador_widget.dart';
 import '../widgets/banca_widget.dart';
 import '../widgets/historial_sets_widget.dart';
 import '../widgets/sorteo_overlay.dart';
+import '../widgets/hoja_inferior.dart';
 import 'partido_detalle_screen.dart';
 import 'dart:async';
 
@@ -71,23 +73,32 @@ class PartidoScreen extends StatelessWidget {
                 children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                    child: Row(
-                      children: [
-                        // PANEL IZQUIERDO (Equipo A)
-                        _buildPanelLateral(context, 1, "A", Colors.blue, partido),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        // Panel proporcional al ancho real de la pantalla
+                        // (celular chico, tablet o ventana web grande) en
+                        // vez de un ancho fijo que en pantallas angostas le
+                        // roba demasiado espacio a la cancha.
+                        final panelWidth = (constraints.maxWidth * 0.12).clamp(64.0, 120.0);
+                        return Row(
+                          children: [
+                            // PANEL IZQUIERDO (Equipo A)
+                            _buildPanelLateral(context, 1, "A", Colors.blue, partido, panelWidth),
 
-                        // CENTRO: CANCHA
-                        Expanded(
-                          flex: 5,
-                          child: CanchaView(
-                            jugadores: partido.todosLosJugadores,
-                            onJugadorTap: (j) => _mostrarOpcionesJugador(context, j),
-                          ),
-                        ),
+                            // CENTRO: CANCHA
+                            Expanded(
+                              flex: 5,
+                              child: CanchaView(
+                                jugadores: partido.todosLosJugadores,
+                                onJugadorTap: (j) => _mostrarOpcionesJugador(context, j),
+                              ),
+                            ),
 
-                        // PANEL DERECHO (Equipo B)
-                        _buildPanelLateral(context, 2, "B", Colors.red, partido),
-                      ],
+                            // PANEL DERECHO (Equipo B)
+                            _buildPanelLateral(context, 2, "B", Colors.red, partido, panelWidth),
+                          ],
+                        );
+                      },
                     ),
                   ),
 
@@ -113,9 +124,9 @@ class PartidoScreen extends StatelessWidget {
 
   // --- WIDGETS SEGÚN TU PROPUESTA ---
 
-  Widget _buildPanelLateral(BuildContext context, int equipoId, String titulo, Color color, PartidoProvider partido) {
+  Widget _buildPanelLateral(BuildContext context, int equipoId, String titulo, Color color, PartidoProvider partido, double ancho) {
     return SizedBox(
-      width: 90,
+      width: ancho,
       child: Column(
         children: [
           _botonTMCompacto(context, equipoId, partido),
@@ -314,38 +325,35 @@ class PartidoScreen extends StatelessWidget {
       return true;
     }).toList();
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-              child: Text(
-                "Punto para $nombreEquipo — ¿cómo fue?",
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-              ),
+    mostrarHojaInferior(
+      context,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Text(
+              "Punto para $nombreEquipo — ¿cómo fue?",
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
-            ...tipos.map((tipo) => ListTile(
-                  dense: true,
-                  leading: Icon(
-                    tipo.icono,
-                    color: tipo == TipoPunto.otro
-                        ? Colors.blueGrey
-                        : (tipo.esPositivo ? Colors.green.shade700 : Colors.red.shade700),
-                  ),
-                  title: Text(tipo.label),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _procesarTipoPunto(context, equipoId: equipoId, tipo: tipo);
-                  },
-                )),
-            const SizedBox(height: 8),
-          ],
-        ),
+          ),
+          ...tipos.map((tipo) => ListTile(
+                dense: true,
+                leading: Icon(
+                  tipo.icono,
+                  color: tipo == TipoPunto.otro
+                      ? Colors.blueGrey
+                      : (tipo.esPositivo ? Colors.green.shade700 : Colors.red.shade700),
+                ),
+                title: Text(tipo.label),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _procesarTipoPunto(context, equipoId: equipoId, tipo: tipo);
+                },
+              )),
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
@@ -394,7 +402,22 @@ class PartidoScreen extends StatelessWidget {
 
     candidatos.sort((a, b) => a.posicionCancha.compareTo(b.posicionCancha));
 
-    _mostrarSelectorJugador(context, equipoId: equipoId, tipo: tipo, candidatos: candidatos);
+    // Solo las jugadas de rally (no el saque) tienen un "K" — número de
+    // ataque del intercambio que terminó el punto.
+    const tiposDeRally = {
+      TipoPunto.ataque,
+      TipoPunto.bloqueo,
+      TipoPunto.errorAtaqueRival,
+      TipoPunto.errorRecepcionRival,
+    };
+
+    _mostrarSelectorJugador(
+      context,
+      equipoId: equipoId,
+      tipo: tipo,
+      candidatos: candidatos,
+      pedirComplejo: tiposDeRally.contains(tipo),
+    );
   }
 
   Jugador? _jugadorEnPosicion(PartidoProvider partido, int equipoId, int posicion) {
@@ -415,13 +438,15 @@ class PartidoScreen extends StatelessWidget {
     required int equipoId,
     required TipoPunto tipo,
     required List<Jugador> candidatos,
+    bool pedirComplejo = false,
   }) {
     final partido = context.read<PartidoProvider>();
+    int? complejoSeleccionado;
 
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
+    mostrarHojaInferior(
+      context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
@@ -431,6 +456,35 @@ class PartidoScreen extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ),
+            if (pedirComplejo) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                child: Text(
+                  "¿En qué K terminó el punto? (opcional)",
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Wrap(
+                  spacing: 6,
+                  children: ComplejoPunto.valores.map((k) {
+                    final activo = complejoSeleccionado == k;
+                    final color = ComplejoPunto.colores[k]!;
+                    return ChoiceChip(
+                      label: Text(ComplejoPunto.labels[k]!, style: const TextStyle(fontSize: 11)),
+                      selected: activo,
+                      selectedColor: color,
+                      labelStyle: TextStyle(color: activo ? Colors.white : Colors.black87),
+                      onSelected: (_) => setSheetState(
+                        () => complejoSeleccionado = activo ? null : k,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 4),
+            ],
             if (candidatos.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -449,7 +503,7 @@ class PartidoScreen extends StatelessWidget {
                   subtitle: Text('Posición ${j.posicionCancha}', style: const TextStyle(fontSize: 10)),
                   onTap: () {
                     Navigator.pop(ctx);
-                    partido.sumarPunto(equipoId, tipo: tipo, jugador: j);
+                    partido.sumarPunto(equipoId, tipo: tipo, jugador: j, complejo: complejoSeleccionado);
                   },
                 )),
             ListTile(
@@ -458,7 +512,7 @@ class PartidoScreen extends StatelessWidget {
               title: const Text("Sin especificar jugador"),
               onTap: () {
                 Navigator.pop(ctx);
-                partido.sumarPunto(equipoId, tipo: tipo);
+                partido.sumarPunto(equipoId, tipo: tipo, complejo: complejoSeleccionado);
               },
             ),
             const SizedBox(height: 8),
@@ -469,26 +523,24 @@ class PartidoScreen extends StatelessWidget {
   }
 
   void _mostrarOpcionesJugador(BuildContext context, Jugador jugador) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              dense: true,
-              leading: const Icon(Icons.edit, size: 20),
-              title: const Text("Editar Jugador"),
-              onTap: () { Navigator.pop(ctx); _formDialogEdicion(context, jugador); },
-            ),
-            ListTile(
-              dense: true,
-              leading: const Icon(Icons.swap_horiz, size: 20),
-              title: const Text("Sustitución"),
-              onTap: () { Navigator.pop(ctx); _mostrarDialogoCambio(context, jugador); },
-            ),
-          ],
-        ),
+    mostrarHojaInferior(
+      context,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            dense: true,
+            leading: const Icon(Icons.edit, size: 20),
+            title: const Text("Editar Jugador"),
+            onTap: () { Navigator.pop(ctx); _formDialogEdicion(context, jugador); },
+          ),
+          ListTile(
+            dense: true,
+            leading: const Icon(Icons.swap_horiz, size: 20),
+            title: const Text("Sustitución"),
+            onTap: () { Navigator.pop(ctx); _mostrarDialogoCambio(context, jugador); },
+          ),
+        ],
       ),
     );
   }
@@ -500,12 +552,14 @@ class PartidoScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Editar"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: "Nombre")),
-            TextField(controller: dorsalCtrl, decoration: const InputDecoration(labelText: "Dorsal"), keyboardType: TextInputType.number),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nombreCtrl, decoration: const InputDecoration(labelText: "Nombre")),
+              TextField(controller: dorsalCtrl, decoration: const InputDecoration(labelText: "Dorsal"), keyboardType: TextInputType.number),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
@@ -529,11 +583,15 @@ class PartidoScreen extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: const Text("Sustitución"),
         content: SizedBox(
-          width: 200,
+          width: 220,
+          // Alto acotado a la pantalla disponible: si hay muchos suplentes
+          // la lista scrollea en vez de desbordar el diálogo.
+          height: suplentes.isEmpty
+              ? null
+              : (suplentes.length * 48).clamp(0, (MediaQuery.of(ctx).size.height * 0.5).round()).toDouble(),
           child: suplentes.isEmpty
               ? const Text("No hay suplentes.")
               : ListView.builder(
-                  shrinkWrap: true,
                   itemCount: suplentes.length,
                   itemBuilder: (context, i) => ListTile(
                     dense: true,
@@ -560,25 +618,27 @@ class PartidoScreen extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Guardar Partido"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              "${partido.nombreEquipoA}  ${partido.setsGanadosA} - ${partido.setsGanadosB}  ${partido.nombreEquipoB}",
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: notasCtrl,
-              decoration: const InputDecoration(
-                labelText: "Notas (opcional)",
-                hintText: "Comentarios del partido...",
-                border: OutlineInputBorder(),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "${partido.nombreEquipoA}  ${partido.setsGanadosA} - ${partido.setsGanadosB}  ${partido.nombreEquipoB}",
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                textAlign: TextAlign.center,
               ),
-              maxLines: 3,
-            ),
-          ],
+              const SizedBox(height: 14),
+              TextField(
+                controller: notasCtrl,
+                decoration: const InputDecoration(
+                  labelText: "Notas (opcional)",
+                  hintText: "Comentarios del partido...",
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
