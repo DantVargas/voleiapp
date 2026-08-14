@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-Content \"c:\\\\Users\\\\danfr\\\\Desktop\\\\volei\\\\voleiapp\\\\lib\\\\models\\\\estadistica_model.dart\")",
+      "Bash(Get-Content \"c:\\\\Users\\\\danfr\\\\Desktop\\\\volei\\\\voleiapp\\\\lib\\\\screens\\\\historial_screen.dart\")",
+      "Bash(flutter analyze *)",
+      "Bash(flutter config *)",
+      "Bash(flutter devices *)"
+    ]
+  }
+}

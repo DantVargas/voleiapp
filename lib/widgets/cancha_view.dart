@@ -6,12 +6,11 @@ class CanchaView extends StatelessWidget {
   final Function(Jugador) onJugadorTap;
 
   const CanchaView({
-    super.key, 
-    required this.jugadores, 
-    required this.onJugadorTap
+    super.key,
+    required this.jugadores,
+    required this.onJugadorTap,
   });
 
-  // Coordenadas fijas para la vista
   static const Map<int, Offset> posicionesEquipoA = {
     4: Offset(0.38, 0.22), 3: Offset(0.38, 0.50), 2: Offset(0.38, 0.78),
     5: Offset(0.15, 0.22), 6: Offset(0.15, 0.50), 1: Offset(0.15, 0.78),
@@ -22,14 +21,29 @@ class CanchaView extends StatelessWidget {
     1: Offset(0.85, 0.22), 6: Offset(0.85, 0.50), 5: Offset(0.85, 0.78),
   };
 
+  // Ahora recibe el mapa explícitamente en vez de depender del equipoId
+  static Map<int, Offset> _posicionesPara(int equipoId) {
+    return equipoId == 1 ? posicionesEquipoA : posicionesEquipoB;
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Proporción ~2:1 (parecida a una cancha real de 18x9m vista de arriba
+    // con ambos lados juntos) — en el modo horizontal forzado del celular
+    // aprovecha mejor el ancho disponible que una proporción más cuadrada.
     return AspectRatio(
-      aspectRatio: 3 / 2,
+      aspectRatio: 2,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final w = constraints.maxWidth;
           final h = constraints.maxHeight;
+
+          // Tamaño de ficha proporcional al espacio real de la cancha, así
+          // se ve y se toca cómodo tanto en un celular chico como en una
+          // tablet o una ventana de escritorio grande.
+          final circulo = (w * 0.095).clamp(34.0, 58.0);
+          final fichaWidth = circulo + 12;
+          final fichaHeight = circulo + 20;
 
           return Container(
             decoration: BoxDecoration(
@@ -38,27 +52,44 @@ class CanchaView extends StatelessWidget {
             ),
             child: Stack(
               children: [
+                // Fondo cancha
                 Positioned.fill(
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Image.asset(
                       'assets/cancha.jpg',
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(color: Colors.orange.shade400),
+                      errorBuilder: (_, __, ___) =>
+                          Container(color: Colors.orange.shade400),
                     ),
                   ),
                 ),
-                Center(child: Container(width: 2, color: Colors.white70)),
-                ...jugadores.where((j) => j.posicionCancha > 0).map((j) {
-                  final config = j.equipoId == 1 ? posicionesEquipoA : posicionesEquipoB;
-                  final offset = config[j.posicionCancha] ?? const Offset(0, 0);
+
+                // Línea/red central
+                Center(
+                  child: Container(
+                    width: 3,
+                    decoration: BoxDecoration(
+                      color: Colors.white70,
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 2)],
+                    ),
+                  ),
+                ),
+
+                // Fichas de jugadores en cancha
+                ...jugadores.where((j) => j.estaEnCancha).map((j) {
+                  final posiciones = _posicionesPara(j.equipoId);
+                  final offset = posiciones[j.posicionCancha];
+
+                  // Si no hay offset válido, no renderizar
+                  if (offset == null) return const SizedBox.shrink();
 
                   return AnimatedPositioned(
                     duration: const Duration(milliseconds: 600),
                     curve: Curves.easeOutBack,
-                    left: offset.dx * w - 22,
-                    top: offset.dy * h - 28,
-                    child: _buildFicha(j),
+                    left: offset.dx * w - fichaWidth / 2,
+                    top: offset.dy * h - fichaHeight / 2,
+                    child: _buildFicha(j, circulo),
                   );
                 }),
               ],
@@ -69,30 +100,53 @@ class CanchaView extends StatelessWidget {
     );
   }
 
-  Widget _buildFicha(Jugador j) {
+  Widget _buildFicha(Jugador j, double circulo) {
+    final color = j.equipoId == 1 ? Colors.blue : Colors.red;
+
     return GestureDetector(
       onTap: () => onJugadorTap(j),
-      child: Column(
-        children: [
-          Container(
-            width: 42, height: 42,
-            decoration: BoxDecoration(
-              color: j.equipoId == 1 ? Colors.blue : Colors.red,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-              boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+      // Área táctil mínima cómoda aunque el círculo dibujado sea chico.
+      behavior: HitTestBehavior.opaque,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: circulo,
+              height: circulo,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '${j.dorsal}',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: circulo * 0.36),
+              ),
             ),
-            alignment: Alignment.center,
-            child: Text("${j.dorsal}", 
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(4)),
-            child: Text(j.nombre ?? "", 
-              style: const TextStyle(fontSize: 9, color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
+            const SizedBox(height: 2),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                j.nombre ?? '',
+                style: const TextStyle(
+                    fontSize: 9,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
