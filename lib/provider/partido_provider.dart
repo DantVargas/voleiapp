@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/jugador_model.dart';
 import '../models/tipo_punto.dart';
-import '../services/api_client.dart';
+import '../database/db_manager.dart';
 
 class PartidoProvider extends ChangeNotifier {
   // -------------------------------------------------------
@@ -43,22 +43,25 @@ class PartidoProvider extends ChangeNotifier {
   // Cronómetro
   Stopwatch cronometroSet = Stopwatch();
 
+  // Nombre por defecto uniforme ("Jugador") para no confundir con el
+  // número de camiseta (dorsal) ni con la posición en cancha, que ya se
+  // muestran por separado en cada lugar de la UI.
   List<Jugador> todosLosJugadores = [
-    Jugador(dorsal: 1, posicionCancha: 4, nombre: 'Jugador 1', equipoId: 1),
-    Jugador(dorsal: 2, posicionCancha: 3, nombre: 'Jugador 2', equipoId: 1),
-    Jugador(dorsal: 5, posicionCancha: 2, nombre: 'Jugador 3', equipoId: 1),
-    Jugador(dorsal: 6, posicionCancha: 6, nombre: 'Jugador 4', equipoId: 1),
-    Jugador(dorsal: 7, posicionCancha: 1, nombre: 'Jugador 5', equipoId: 1),
-    Jugador(dorsal: 8, posicionCancha: 5, nombre: 'Jugador 6', equipoId: 1),
-    Jugador(dorsal: 99, posicionCancha: 0, nombre: 'Suplente A1', equipoId: 1),
-    Jugador(dorsal: 98, posicionCancha: 0, nombre: 'Suplente A2', equipoId: 1),
-    Jugador(dorsal: 3, posicionCancha: 4, nombre: 'Jugador 1', equipoId: 2),
-    Jugador(dorsal: 4, posicionCancha: 3, nombre: 'Jugador 2', equipoId: 2),
-    Jugador(dorsal: 9, posicionCancha: 2, nombre: 'Jugador 3', equipoId: 2),
-    Jugador(dorsal: 10, posicionCancha: 6, nombre: 'Jugador 4', equipoId: 2),
-    Jugador(dorsal: 11, posicionCancha: 1, nombre: 'Jugador 5', equipoId: 2),
-    Jugador(dorsal: 12, posicionCancha: 5, nombre: 'Jugador 6', equipoId: 2),
-    Jugador(dorsal: 20, posicionCancha: 0, nombre: 'Suplente B1', equipoId: 2),
+    Jugador(dorsal: 1, posicionCancha: 4, nombre: 'Jugador', equipoId: 1),
+    Jugador(dorsal: 2, posicionCancha: 3, nombre: 'Jugador', equipoId: 1),
+    Jugador(dorsal: 5, posicionCancha: 2, nombre: 'Jugador', equipoId: 1),
+    Jugador(dorsal: 6, posicionCancha: 6, nombre: 'Jugador', equipoId: 1),
+    Jugador(dorsal: 7, posicionCancha: 1, nombre: 'Jugador', equipoId: 1),
+    Jugador(dorsal: 8, posicionCancha: 5, nombre: 'Jugador', equipoId: 1),
+    Jugador(dorsal: 99, posicionCancha: 0, nombre: 'Jugador', equipoId: 1),
+    Jugador(dorsal: 98, posicionCancha: 0, nombre: 'Jugador', equipoId: 1),
+    Jugador(dorsal: 3, posicionCancha: 4, nombre: 'Jugador', equipoId: 2),
+    Jugador(dorsal: 4, posicionCancha: 3, nombre: 'Jugador', equipoId: 2),
+    Jugador(dorsal: 9, posicionCancha: 2, nombre: 'Jugador', equipoId: 2),
+    Jugador(dorsal: 10, posicionCancha: 6, nombre: 'Jugador', equipoId: 2),
+    Jugador(dorsal: 11, posicionCancha: 1, nombre: 'Jugador', equipoId: 2),
+    Jugador(dorsal: 12, posicionCancha: 5, nombre: 'Jugador', equipoId: 2),
+    Jugador(dorsal: 20, posicionCancha: 0, nombre: 'Jugador', equipoId: 2),
   ];
 
   // -------------------------------------------------------
@@ -311,8 +314,16 @@ class PartidoProvider extends ChangeNotifier {
   // PERSISTENCIA EN BASE DE DATOS
   // -------------------------------------------------------
   Future<int> guardarPartido({String notas = ''}) async {
-    final List<Map<String, dynamic>> setsPayload = [];
-    final List<Map<String, dynamic>> puntosPayload = [];
+    final db = DBManager();
+
+    final partidoId = await db.crearPartido(
+      nombreEquipoA: nombreEquipoA,
+      nombreEquipoB: nombreEquipoB,
+      notas: notas.isNotEmpty ? notas : null,
+    );
+
+    await db.actualizarMarcadorSets(partidoId, setsGanadosA, setsGanadosB);
+    await db.finalizarPartido(partidoId);
 
     // Acumuladores de estadísticas por jugador (clave: "dorsal-equipoId"),
     // se rellenan con los puntos detallados que haya registrado Modo Pro.
@@ -324,14 +335,16 @@ class PartidoProvider extends ChangeNotifier {
       if (set.isEmpty) continue;
       final pA = set.where((p) => p['equipo'] == 1).length;
       final pB = set.where((p) => p['equipo'] == 2).length;
-      setsPayload.add({'numero_set': i + 1, 'puntos_a': pA, 'puntos_b': pB});
+      final setId = await db.crearSet(partidoId, i + 1);
+      await db.actualizarPuntosSet(setId, pA, pB);
 
       for (final punto in set) {
         final tipoNombre = punto['tipo'] as String?;
         if (tipoNombre == null) continue; // punto de Modo Cancha, sin detalle
 
         final tipo = TipoPuntoInfo.fromNombre(tipoNombre);
-        puntosPayload.add({
+        await db.insertarPuntoPro({
+          'partido_id': partidoId,
           'numero_set': i + 1,
           'equipo_id': punto['equipo'],
           'tipo': tipoNombre,
@@ -361,12 +374,13 @@ class PartidoProvider extends ChangeNotifier {
       }
     }
 
-    // Una fila de estadísticas por cada jugador actual, con los valores
-    // reales acumulados de Modo Pro (o ceros si no hubo detalle).
-    final estadisticasPayload = todosLosJugadores.map((jugador) {
+    // Guardamos una fila de estadísticas por cada jugador actual, usando los
+    // valores reales acumulados de Modo Pro (o ceros si no hubo detalle).
+    for (final jugador in todosLosJugadores) {
       final clave = claveJugador(jugador.dorsal, jugador.equipoId);
       final stats = statsPorJugador[clave];
-      return {
+      await db.insertarEstadistica({
+        'partido_id': partidoId,
         'jugador_nombre': jugador.nombre ?? 'Jugador',
         'dorsal': jugador.dorsal,
         'equipo_id': jugador.equipoId,
@@ -377,19 +391,10 @@ class PartidoProvider extends ChangeNotifier {
         'bloqueos': stats?['bloqueos'] ?? 0,
         'recepciones': stats?['recepciones'] ?? 0,
         'errores_recepcion': stats?['errores_recepcion'] ?? 0,
-      };
-    }).toList();
+      });
+    }
 
-    return ApiClient().guardarPartido(
-      nombreEquipoA: nombreEquipoA,
-      nombreEquipoB: nombreEquipoB,
-      notas: notas,
-      setsA: setsGanadosA,
-      setsB: setsGanadosB,
-      sets: setsPayload,
-      puntos: puntosPayload,
-      estadisticas: estadisticasPayload,
-    );
+    return partidoId;
   }
 
   void abrirSorteo() {

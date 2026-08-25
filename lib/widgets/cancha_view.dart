@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/jugador_model.dart';
+import '../provider/ajustes_provider.dart';
 
 class CanchaView extends StatelessWidget {
   final List<Jugador> jugadores;
@@ -28,6 +30,8 @@ class CanchaView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final escala = context.watch<AjustesProvider>().escalaUI;
+
     // Proporción ~2:1 (parecida a una cancha real de 18x9m vista de arriba
     // con ambos lados juntos) — en el modo horizontal forzado del celular
     // aprovecha mejor el ancho disponible que una proporción más cuadrada.
@@ -40,10 +44,11 @@ class CanchaView extends StatelessWidget {
 
           // Tamaño de ficha proporcional al espacio real de la cancha, así
           // se ve y se toca cómodo tanto en un celular chico como en una
-          // tablet o una ventana de escritorio grande.
-          final circulo = (w * 0.095).clamp(34.0, 58.0);
-          final fichaWidth = circulo + 12;
-          final fichaHeight = circulo + 20;
+          // tablet o una ventana de escritorio grande — y además ajustado
+          // por la escala elegida en Ajustes.
+          final circulo = (w * 0.095).clamp(34.0, 58.0) * escala;
+          final fichaWidth = circulo + 12 * escala;
+          final fichaHeight = circulo + 20 * escala;
 
           return Container(
             decoration: BoxDecoration(
@@ -89,7 +94,7 @@ class CanchaView extends StatelessWidget {
                     curve: Curves.easeOutBack,
                     left: offset.dx * w - fichaWidth / 2,
                     top: offset.dy * h - fichaHeight / 2,
-                    child: _buildFicha(j, circulo),
+                    child: _buildFicha(j, circulo, escala),
                   );
                 }),
               ],
@@ -100,7 +105,7 @@ class CanchaView extends StatelessWidget {
     );
   }
 
-  Widget _buildFicha(Jugador j, double circulo) {
+  Widget _buildFicha(Jugador j, double circulo, double escala) {
     final color = j.equipoId == 1 ? Colors.blue : Colors.red;
 
     return GestureDetector(
@@ -130,17 +135,17 @@ class CanchaView extends StatelessWidget {
                     fontSize: circulo * 0.36),
               ),
             ),
-            const SizedBox(height: 2),
+            SizedBox(height: 2 * escala),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              padding: EdgeInsets.symmetric(horizontal: 4 * escala, vertical: 1 * escala),
               decoration: BoxDecoration(
                 color: Colors.black54,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 j.nombre ?? '',
-                style: const TextStyle(
-                    fontSize: 9,
+                style: TextStyle(
+                    fontSize: 9 * escala,
                     color: Colors.white,
                     fontWeight: FontWeight.bold),
               ),

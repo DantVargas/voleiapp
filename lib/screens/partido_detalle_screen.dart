@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import '../services/api_client.dart';
+import 'package:provider/provider.dart';
+import '../database/db_manager.dart';
 import '../models/partido_model.dart';
 import '../models/set_model.dart';
 import '../models/estadistica_model.dart';
+import '../provider/ajustes_provider.dart';
 
 class PartidoDetalleScreen extends StatefulWidget {
   final int partidoId;
@@ -18,7 +20,7 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
   List<SetPartido> _sets = [];
   List<Estadistica> _stats = [];
   bool _cargando = true;
-  final _api = ApiClient();
+  final _db = DBManager();
 
   @override
   void initState() {
@@ -28,24 +30,15 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
 
   Future<void> _cargarDatos() async {
     setState(() => _cargando = true);
-    try {
-      final detalle = await _api.obtenerPartidoDetalle(widget.partidoId);
-      final sRows = (detalle?['sets'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-      final eRows = (detalle?['estadisticas'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-      setState(() {
-        _partido = detalle != null ? Partido.fromMap(detalle) : null;
-        _sets = sRows.map(SetPartido.fromMap).toList();
-        _stats = eRows.map(Estadistica.fromMap).toList();
-        _cargando = false;
-      });
-    } catch (_) {
-      setState(() => _cargando = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("No se pudo conectar con el servidor")),
-        );
-      }
-    }
+    final pMap = await _db.obtenerPartido(widget.partidoId);
+    final sRows = await _db.obtenerSetsPorPartido(widget.partidoId);
+    final eRows = await _db.obtenerEstadisticasPorPartido(widget.partidoId);
+    setState(() {
+      _partido = pMap != null ? Partido.fromMap(pMap) : null;
+      _sets = sRows.map(SetPartido.fromMap).toList();
+      _stats = eRows.map(Estadistica.fromMap).toList();
+      _cargando = false;
+    });
   }
 
   // -------------------------------------------------------
@@ -87,7 +80,7 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancelar")),
           ElevatedButton(
             onPressed: () async {
-              await _api.actualizarPartido(widget.partidoId, {
+              await _db.actualizarPartido(widget.partidoId, {
                 'nombre_equipo_a': ctrlA.text.trim().isNotEmpty ? ctrlA.text.trim() : _partido!.nombreEquipoA,
                 'nombre_equipo_b': ctrlB.text.trim().isNotEmpty ? ctrlB.text.trim() : _partido!.nombreEquipoB,
                 'notas': ctrlNotas.text.trim().isNotEmpty ? ctrlNotas.text.trim() : null,
@@ -143,7 +136,7 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
             onPressed: () async {
               final pA = int.tryParse(ctrlA.text) ?? set.puntosA;
               final pB = int.tryParse(ctrlB.text) ?? set.puntosB;
-              await _api.actualizarPuntosSet(set.id!, pA, pB);
+              await _db.actualizarPuntosSet(set.id!, pA, pB);
               if (ctx.mounted) Navigator.pop(ctx);
               _cargarDatos();
             },
@@ -232,7 +225,7 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
                   ),
                 );
                 if (confirmar == true && e.id != null) {
-                  await _api.eliminarEstadistica(e.id!);
+                  await _db.eliminarEstadistica(e.id!);
                   if (ctx.mounted) Navigator.pop(ctx);
                   _cargarDatos();
                 }
@@ -241,7 +234,7 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
             ),
             ElevatedButton(
               onPressed: () async {
-                await _api.actualizarEstadistica(e.id!, {
+                await _db.actualizarEstadistica(e.id!, {
                   'aces': valores['aces'],
                   'errores_saque': valores['errores_saque'],
                   'ataques': valores['ataques'],
@@ -315,7 +308,8 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
             ElevatedButton(
               onPressed: () async {
                 if (ctrlNombre.text.trim().isEmpty) return;
-                await _api.agregarEstadistica(widget.partidoId, {
+                await _db.insertarEstadistica({
+                  'partido_id': widget.partidoId,
                   'jugador_nombre': ctrlNombre.text.trim(),
                   'dorsal': int.tryParse(ctrlDorsal.text) ?? 0,
                   'equipo_id': equipoSeleccionado,
@@ -392,6 +386,7 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
       return const Scaffold(body: Center(child: Text("Partido no encontrado")));
     }
 
+    final escala = context.watch<AjustesProvider>().escalaUI;
     const colorA = Colors.blue;
     const colorB = Colors.red;
     final ganoA = _partido!.setsA > _partido!.setsB;
@@ -401,14 +396,14 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
       appBar: AppBar(
         title: Text(
           "${_partido!.nombreEquipoA} vs ${_partido!.nombreEquipoB}",
-          style: const TextStyle(fontSize: 14),
+          style: TextStyle(fontSize: 14 * escala),
         ),
         backgroundColor: Colors.white,
         foregroundColor: Colors.blueGrey,
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit_outlined),
+            icon: Icon(Icons.edit_outlined, size: 24 * escala),
             tooltip: "Editar partido",
             onPressed: _editarCabecera,
           ),
@@ -416,72 +411,72 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _agregarJugador,
-        icon: const Icon(Icons.person_add),
-        label: const Text("Agregar jugador"),
+        icon: Icon(Icons.person_add, size: 24 * escala),
+        label: Text("Agregar jugador", style: TextStyle(fontSize: 14 * escala)),
         backgroundColor: Colors.blueGrey,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
+        padding: EdgeInsets.fromLTRB(12 * escala, 12 * escala, 12 * escala, 80 * escala),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // --- CABECERA ---
-            _buildCabecera(ganoA, colorA, colorB),
-            const SizedBox(height: 12),
+            _buildCabecera(ganoA, colorA, colorB, escala),
+            SizedBox(height: 12 * escala),
 
             // --- SETS ---
-            _buildSeccion("Resultado por Set", Icons.format_list_numbered),
-            const SizedBox(height: 6),
-            ..._sets.map((s) => _buildFilaSet(s)),
+            _buildSeccion("Resultado por Set", Icons.format_list_numbered, escala),
+            SizedBox(height: 6 * escala),
+            ..._sets.map((s) => _buildFilaSet(s, escala)),
             if (_sets.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(8),
-                child: Text("Sin sets registrados", style: TextStyle(color: Colors.grey)),
+              Padding(
+                padding: EdgeInsets.all(8 * escala),
+                child: Text("Sin sets registrados", style: TextStyle(color: Colors.grey, fontSize: 14 * escala)),
               ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16 * escala),
 
             // --- NOTAS ---
             if (_partido!.notas != null && _partido!.notas!.isNotEmpty) ...[
-              _buildSeccion("Notas", Icons.notes),
-              const SizedBox(height: 6),
+              _buildSeccion("Notas", Icons.notes, escala),
+              SizedBox(height: 6 * escala),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding: EdgeInsets.all(12 * escala),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: Colors.grey.shade200),
                 ),
-                child: Text(_partido!.notas!, style: const TextStyle(fontSize: 13, color: Colors.black87)),
+                child: Text(_partido!.notas!, style: TextStyle(fontSize: 13 * escala, color: Colors.black87)),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16 * escala),
             ],
 
             // --- ESTADÍSTICAS ---
-            _buildSeccion("Estadísticas por Jugador", Icons.bar_chart),
-            const SizedBox(height: 6),
+            _buildSeccion("Estadísticas por Jugador", Icons.bar_chart, escala),
+            SizedBox(height: 6 * escala),
 
             // Equipo A
             if (_stats.any((e) => e.equipoId == 1)) ...[
-              _buildSubtituloEquipo(_partido!.nombreEquipoA, colorA),
-              const SizedBox(height: 4),
-              _buildTablaStats(_stats.where((e) => e.equipoId == 1).toList()),
-              const SizedBox(height: 12),
+              _buildSubtituloEquipo(_partido!.nombreEquipoA, colorA, escala),
+              SizedBox(height: 4 * escala),
+              _buildTablaStats(_stats.where((e) => e.equipoId == 1).toList(), escala),
+              SizedBox(height: 12 * escala),
             ],
 
             // Equipo B
             if (_stats.any((e) => e.equipoId == 2)) ...[
-              _buildSubtituloEquipo(_partido!.nombreEquipoB, colorB),
-              const SizedBox(height: 4),
-              _buildTablaStats(_stats.where((e) => e.equipoId == 2).toList()),
+              _buildSubtituloEquipo(_partido!.nombreEquipoB, colorB, escala),
+              SizedBox(height: 4 * escala),
+              _buildTablaStats(_stats.where((e) => e.equipoId == 2).toList(), escala),
             ],
 
             if (_stats.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(8),
+              Padding(
+                padding: EdgeInsets.all(8 * escala),
                 child: Text(
                   "Sin estadísticas. Usá el botón para agregar jugadores.",
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: Colors.grey, fontSize: 14 * escala),
                 ),
               ),
           ],
@@ -490,48 +485,48 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
     );
   }
 
-  Widget _buildCabecera(bool ganoA, Color colorA, Color colorB) {
+  Widget _buildCabecera(bool ganoA, Color colorA, Color colorB, double escala) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 2,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: EdgeInsets.symmetric(horizontal: 16 * escala, vertical: 14 * escala),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             Column(
               children: [
                 Text(_partido!.nombreEquipoA,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: colorA, fontSize: 14)),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: colorA, fontSize: 14 * escala)),
                 if (ganoA)
                   Container(
-                    margin: const EdgeInsets.only(top: 2),
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    margin: EdgeInsets.only(top: 2 * escala),
+                    padding: EdgeInsets.symmetric(horizontal: 6 * escala, vertical: 1 * escala),
                     decoration: BoxDecoration(
                       color: Colors.blue.shade50,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text("GANADOR", style: TextStyle(fontSize: 8, color: Colors.blue, fontWeight: FontWeight.bold)),
+                    child: Text("GANADOR", style: TextStyle(fontSize: 8 * escala, color: Colors.blue, fontWeight: FontWeight.bold)),
                   ),
               ],
             ),
             Text(
               "${_partido!.setsA} - ${_partido!.setsB}",
-              style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.blueGrey),
+              style: TextStyle(fontSize: 32 * escala, fontWeight: FontWeight.w900, color: Colors.blueGrey),
             ),
             Column(
               children: [
                 Text(_partido!.nombreEquipoB,
-                    style: TextStyle(fontWeight: FontWeight.bold, color: colorB, fontSize: 14)),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: colorB, fontSize: 14 * escala)),
                 if (!ganoA)
                   Container(
-                    margin: const EdgeInsets.only(top: 2),
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    margin: EdgeInsets.only(top: 2 * escala),
+                    padding: EdgeInsets.symmetric(horizontal: 6 * escala, vertical: 1 * escala),
                     decoration: BoxDecoration(
                       color: Colors.red.shade50,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text("GANADOR", style: TextStyle(fontSize: 8, color: Colors.red, fontWeight: FontWeight.bold)),
+                    child: Text("GANADOR", style: TextStyle(fontSize: 8 * escala, color: Colors.red, fontWeight: FontWeight.bold)),
                   ),
               ],
             ),
@@ -541,16 +536,16 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
     );
   }
 
-  Widget _buildFilaSet(SetPartido set) {
+  Widget _buildFilaSet(SetPartido set, double escala) {
     final ganoA = set.puntosA > set.puntosB;
     return Card(
-      margin: const EdgeInsets.only(bottom: 4),
+      margin: EdgeInsets.only(bottom: 4 * escala),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       elevation: 0,
       color: Colors.white,
       child: ListTile(
         dense: true,
-        title: Text("Set ${set.numeroSet}", style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+        title: Text("Set ${set.numeroSet}", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13 * escala)),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -558,13 +553,13 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
               "${set.puntosA} - ${set.puntosB}",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 16,
+                fontSize: 16 * escala,
                 color: ganoA ? Colors.blue : Colors.red,
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8 * escala),
             IconButton(
-              icon: const Icon(Icons.edit_outlined, size: 16),
+              icon: Icon(Icons.edit_outlined, size: 16 * escala),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
               onPressed: () => _editarSet(set),
@@ -575,7 +570,7 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
     );
   }
 
-  Widget _buildTablaStats(List<Estadistica> stats) {
+  Widget _buildTablaStats(List<Estadistica> stats, double escala) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -586,20 +581,20 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
         children: [
           // Encabezado
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: EdgeInsets.symmetric(horizontal: 12 * escala, vertical: 6 * escala),
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                SizedBox(width: 28, child: Text("#", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
-                Expanded(child: Text("Jugador", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
-                SizedBox(width: 30, child: Text("ACE", textAlign: TextAlign.center, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green))),
-                SizedBox(width: 30, child: Text("ATQ", textAlign: TextAlign.center, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green))),
-                SizedBox(width: 30, child: Text("BLQ", textAlign: TextAlign.center, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green))),
-                SizedBox(width: 30, child: Text("REC", textAlign: TextAlign.center, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
-                SizedBox(width: 30, child: Text("ERR", textAlign: TextAlign.center, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red))),
+                SizedBox(width: 28 * escala, child: Text("#", style: TextStyle(fontSize: 10 * escala, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
+                Expanded(child: Text("Jugador", style: TextStyle(fontSize: 10 * escala, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
+                SizedBox(width: 30 * escala, child: Text("ACE", textAlign: TextAlign.center, style: TextStyle(fontSize: 10 * escala, fontWeight: FontWeight.bold, color: Colors.green))),
+                SizedBox(width: 30 * escala, child: Text("ATQ", textAlign: TextAlign.center, style: TextStyle(fontSize: 10 * escala, fontWeight: FontWeight.bold, color: Colors.green))),
+                SizedBox(width: 30 * escala, child: Text("BLQ", textAlign: TextAlign.center, style: TextStyle(fontSize: 10 * escala, fontWeight: FontWeight.bold, color: Colors.green))),
+                SizedBox(width: 30 * escala, child: Text("REC", textAlign: TextAlign.center, style: TextStyle(fontSize: 10 * escala, fontWeight: FontWeight.bold, color: Colors.blueGrey))),
+                SizedBox(width: 30 * escala, child: Text("ERR", textAlign: TextAlign.center, style: TextStyle(fontSize: 10 * escala, fontWeight: FontWeight.bold, color: Colors.red))),
               ],
             ),
           ),
@@ -611,7 +606,7 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
             return InkWell(
               onTap: () => _editarStats(e),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: EdgeInsets.symmetric(horizontal: 12 * escala, vertical: 8 * escala),
                 decoration: BoxDecoration(
                   border: i < stats.length - 1
                       ? Border(bottom: BorderSide(color: Colors.grey.shade100))
@@ -620,20 +615,20 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
                 child: Row(
                   children: [
                     SizedBox(
-                      width: 28,
+                      width: 28 * escala,
                       child: Text(
                         "${e.dorsal}",
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey),
+                        style: TextStyle(fontSize: 11 * escala, fontWeight: FontWeight.bold, color: Colors.grey),
                       ),
                     ),
                     Expanded(
-                      child: Text(e.jugadorNombre, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+                      child: Text(e.jugadorNombre, style: TextStyle(fontSize: 11 * escala, fontWeight: FontWeight.w500)),
                     ),
-                    _celdaStat(e.aces, Colors.green),
-                    _celdaStat(e.ataques, Colors.green),
-                    _celdaStat(e.bloqueos, Colors.green),
-                    _celdaStat(e.recepciones, Colors.blueGrey),
-                    _celdaStat(e.totalNegativos, Colors.red),
+                    _celdaStat(e.aces, Colors.green, escala),
+                    _celdaStat(e.ataques, Colors.green, escala),
+                    _celdaStat(e.bloqueos, Colors.green, escala),
+                    _celdaStat(e.recepciones, Colors.blueGrey, escala),
+                    _celdaStat(e.totalNegativos, Colors.red, escala),
                   ],
                 ),
               ),
@@ -644,14 +639,14 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
     );
   }
 
-  Widget _celdaStat(int valor, Color color) {
+  Widget _celdaStat(int valor, Color color, double escala) {
     return SizedBox(
-      width: 30,
+      width: 30 * escala,
       child: Text(
         "$valor",
         textAlign: TextAlign.center,
         style: TextStyle(
-          fontSize: 12,
+          fontSize: 12 * escala,
           fontWeight: valor > 0 ? FontWeight.bold : FontWeight.normal,
           color: valor > 0 ? color : Colors.grey.shade400,
         ),
@@ -659,22 +654,22 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
     );
   }
 
-  Widget _buildSeccion(String titulo, IconData icono) {
+  Widget _buildSeccion(String titulo, IconData icono, double escala) {
     return Row(
       children: [
-        Icon(icono, size: 16, color: Colors.blueGrey),
-        const SizedBox(width: 6),
+        Icon(icono, size: 16 * escala, color: Colors.blueGrey),
+        SizedBox(width: 6 * escala),
         Text(
           titulo,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+          style: TextStyle(fontSize: 13 * escala, fontWeight: FontWeight.bold, color: Colors.blueGrey),
         ),
       ],
     );
   }
 
-  Widget _buildSubtituloEquipo(String nombre, Color color) {
+  Widget _buildSubtituloEquipo(String nombre, Color color, double escala) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      padding: EdgeInsets.symmetric(horizontal: 10 * escala, vertical: 3 * escala),
       decoration: BoxDecoration(
         color: color.withAlpha(25),
         borderRadius: BorderRadius.circular(6),
@@ -682,7 +677,7 @@ class _PartidoDetalleScreenState extends State<PartidoDetalleScreen> {
       ),
       child: Text(
         nombre,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+        style: TextStyle(fontSize: 11 * escala, fontWeight: FontWeight.bold, color: color),
       ),
     );
   }

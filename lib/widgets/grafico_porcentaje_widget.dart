@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../provider/ajustes_provider.dart';
 
 class SegmentoGrafico {
   final String label;
@@ -17,15 +19,16 @@ class GraficoPorcentaje extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final escala = context.watch<AjustesProvider>().escalaUI;
     final visibles = segmentos.where((s) => s.valor > 0).toList();
     final total = visibles.fold<int>(0, (s, e) => s + e.valor);
 
     if (total == 0) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: EdgeInsets.symmetric(vertical: 6 * escala),
         child: Text(
           textoVacio ?? "Sin datos todavía",
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 12 * escala),
         ),
       );
     }
@@ -36,7 +39,7 @@ class GraficoPorcentaje extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(6),
           child: SizedBox(
-            height: 18,
+            height: 18 * escala,
             child: Row(
               children: [
                 for (int i = 0; i < visibles.length; i++) ...[
@@ -50,24 +53,24 @@ class GraficoPorcentaje extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10 * escala),
         Wrap(
-          spacing: 14,
-          runSpacing: 6,
+          spacing: 14 * escala,
+          runSpacing: 6 * escala,
           children: visibles.map((s) {
             final pct = (s.valor / total * 100).round();
             return Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 10,
-                  height: 10,
+                  width: 10 * escala,
+                  height: 10 * escala,
                   decoration: BoxDecoration(color: s.color, shape: BoxShape.circle),
                 ),
-                const SizedBox(width: 5),
+                SizedBox(width: 5 * escala),
                 Text(
                   "${s.label}  $pct%",
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF52514E), fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 11 * escala, color: const Color(0xFF52514E), fontWeight: FontWeight.w600),
                 ),
               ],
             );

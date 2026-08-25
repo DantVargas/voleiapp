@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../provider/partido_provider.dart';
+import '../provider/ajustes_provider.dart';
 import '../models/tipo_punto.dart';
 import '../models/complejo_punto.dart';
 import '../widgets/grafico_porcentaje_widget.dart';
@@ -11,25 +12,26 @@ class EstadisticasScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final partido = context.watch<PartidoProvider>();
+    final escala = context.watch<AjustesProvider>().escalaUI;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F7),
       appBar: AppBar(
-        title: const Text("Estadísticas"),
+        title: Text("Estadísticas", style: TextStyle(fontSize: 20 * escala)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.blueGrey,
         elevation: 0.5,
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16 * escala),
         children: [
           const _SectionTitle(titulo: "Resumen de sets"),
           _ResumenSets(historialSets: partido.historialSets),
-          const SizedBox(height: 22),
+          SizedBox(height: 22 * escala),
 
           const _SectionTitle(titulo: "Distribución de puntos por tipo"),
           _DistribucionPorTipo(partido: partido),
-          const SizedBox(height: 22),
+          SizedBox(height: 22 * escala),
 
           const _SectionTitle(titulo: "Distribución por complejo (K)"),
           _CardContenedor(
@@ -38,7 +40,7 @@ class EstadisticasScreen extends StatelessWidget {
               textoVacio: "Aún no hay jugadas de rally con su K registrado.",
             ),
           ),
-          const SizedBox(height: 22),
+          SizedBox(height: 22 * escala),
 
           const _SectionTitle(titulo: "Estadísticas por jugador"),
           _EstadisticasPorJugador(partido: partido),
@@ -73,9 +75,10 @@ class _CardContenedor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final escala = context.watch<AjustesProvider>().escalaUI;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14 * escala),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -92,14 +95,15 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final escala = context.watch<AjustesProvider>().escalaUI;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: EdgeInsets.only(bottom: 10 * escala),
       child: Text(
         titulo,
-        style: const TextStyle(
-          fontSize: 13,
+        style: TextStyle(
+          fontSize: 13 * escala,
           fontWeight: FontWeight.bold,
-          color: Color(0xFF0B0B0B),
+          color: const Color(0xFF0B0B0B),
           letterSpacing: 0.2,
         ),
       ),
@@ -114,6 +118,7 @@ class _ResumenSets extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final escala = context.watch<AjustesProvider>().escalaUI;
     final tarjetas = <Widget>[];
     for (int i = 0; i < historialSets.length; i++) {
       final set = historialSets[i];
@@ -121,8 +126,8 @@ class _ResumenSets extends StatelessWidget {
       final puntosA = set.where((p) => p['equipo'] == 1).length;
       final puntosB = set.where((p) => p['equipo'] == 2).length;
       tarjetas.add(Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        margin: EdgeInsets.only(right: 8 * escala),
+        padding: EdgeInsets.symmetric(horizontal: 16 * escala, vertical: 10 * escala),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -133,12 +138,12 @@ class _ResumenSets extends StatelessWidget {
           children: [
             Text(
               "SET ${i + 1}",
-              style: TextStyle(fontSize: 9, color: Colors.grey.shade500, fontWeight: FontWeight.w700),
+              style: TextStyle(fontSize: 9 * escala, color: Colors.grey.shade500, fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 3),
+            SizedBox(height: 3 * escala),
             Text(
               "$puntosA - $puntosB",
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.blueGrey),
+              style: TextStyle(fontSize: 16 * escala, fontWeight: FontWeight.w900, color: Colors.blueGrey),
             ),
           ],
         ),
@@ -149,13 +154,13 @@ class _ResumenSets extends StatelessWidget {
       return _CardContenedor(
         child: Text(
           "Todavía no hay sets jugados.",
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 12 * escala),
         ),
       );
     }
 
     return SizedBox(
-      height: 60,
+      height: 60 * escala,
       child: ListView(scrollDirection: Axis.horizontal, children: tarjetas),
     );
   }
@@ -178,6 +183,7 @@ class _DistribucionPorTipoState extends State<_DistribucionPorTipo> {
   @override
   Widget build(BuildContext context) {
     final partido = widget.partido;
+    final escala = context.watch<AjustesProvider>().escalaUI;
     final conteo = <TipoPunto, int>{};
 
     for (final set in partido.historialSets) {
@@ -200,12 +206,12 @@ class _DistribucionPorTipoState extends State<_DistribucionPorTipo> {
         children: [
           Row(
             children: [
-              Expanded(child: _botonEquipo(1, partido.nombreEquipoA)),
-              const SizedBox(width: 8),
-              Expanded(child: _botonEquipo(2, partido.nombreEquipoB)),
+              Expanded(child: _botonEquipo(1, partido.nombreEquipoA, escala)),
+              SizedBox(width: 8 * escala),
+              Expanded(child: _botonEquipo(2, partido.nombreEquipoB, escala)),
             ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16 * escala),
           GraficoPorcentaje(
             segmentos: segmentos,
             textoVacio: "Aún no hay puntos detallados para este equipo.\nUsa la pestaña 'Modo Pro' para registrarlos.",
@@ -215,12 +221,12 @@ class _DistribucionPorTipoState extends State<_DistribucionPorTipo> {
     );
   }
 
-  Widget _botonEquipo(int equipoId, String nombre) {
+  Widget _botonEquipo(int equipoId, String nombre, double escala) {
     final activo = _equipoSeleccionado == equipoId;
     return GestureDetector(
       onTap: () => setState(() => _equipoSeleccionado = equipoId),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: EdgeInsets.symmetric(vertical: 8 * escala),
         decoration: BoxDecoration(
           color: activo ? Colors.blueGrey.shade50 : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
@@ -231,7 +237,7 @@ class _DistribucionPorTipoState extends State<_DistribucionPorTipo> {
           nombre,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 12 * escala,
             fontWeight: FontWeight.bold,
             color: activo ? Colors.blueGrey.shade800 : Colors.grey.shade600,
           ),
@@ -249,6 +255,7 @@ class _EstadisticasPorJugador extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final escala = context.watch<AjustesProvider>().escalaUI;
     final Map<String, String> nombres = {};
     final Map<String, Map<String, int>> stats = {};
 
@@ -273,7 +280,7 @@ class _EstadisticasPorJugador extends StatelessWidget {
       return _CardContenedor(
         child: Text(
           "Aún no hay puntos detallados. Usa la pestaña 'Modo Pro' para registrar cómo fue cada punto.",
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 12 * escala),
           textAlign: TextAlign.center,
         ),
       );
@@ -286,8 +293,8 @@ class _EstadisticasPorJugador extends StatelessWidget {
         final dorsal = clave.split('-').first;
 
         return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
+          margin: EdgeInsets.only(bottom: 8 * escala),
+          padding: EdgeInsets.all(12 * escala),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
@@ -298,18 +305,18 @@ class _EstadisticasPorJugador extends StatelessWidget {
             children: [
               Text(
                 "#$dorsal ${nombres[clave]}",
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13 * escala),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8 * escala),
               Wrap(
-                spacing: 8,
-                runSpacing: 6,
+                spacing: 8 * escala,
+                runSpacing: 6 * escala,
                 children: conteo.entries.map((e) {
                   final tipo = _tipoPorCampo(e.key);
                   final color = tipo?.colorCategoria ?? Colors.grey;
                   final label = tipo?.labelCorto ?? e.key;
                   return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: EdgeInsets.symmetric(horizontal: 8 * escala, vertical: 4 * escala),
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(20),
@@ -318,14 +325,14 @@ class _EstadisticasPorJugador extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 8,
-                          height: 8,
+                          width: 8 * escala,
+                          height: 8 * escala,
                           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
                         ),
-                        const SizedBox(width: 5),
+                        SizedBox(width: 5 * escala),
                         Text(
                           "$label ${e.value}",
-                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF52514E)),
+                          style: TextStyle(fontSize: 10 * escala, fontWeight: FontWeight.w700, color: const Color(0xFF52514E)),
                         ),
                       ],
                     ),

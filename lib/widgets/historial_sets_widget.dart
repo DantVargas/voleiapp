@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../provider/partido_provider.dart';
+import '../provider/ajustes_provider.dart';
 
 class HistorialSetsWidget extends StatefulWidget {
   const HistorialSetsWidget({super.key});
@@ -26,6 +27,7 @@ class _HistorialSetsWidgetState extends State<HistorialSetsWidget> {
   @override
   Widget build(BuildContext context) {
     final partido = context.watch<PartidoProvider>();
+    final escala = context.watch<AjustesProvider>().escalaUI;
     final historialSets = partido.historialSets;
     final setActualIdx = partido.setActual - 1;
     final conteoActual = historialSets[setActualIdx].length;
@@ -37,23 +39,22 @@ class _HistorialSetsWidgetState extends State<HistorialSetsWidget> {
     }
 
     return Container(
-      height: 35, // Aumentamos ligeramente para que no se corte el texto de arriba
       color: Colors.white,
       child: Row(
         children: [
           // Etiqueta fija del Set actual
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            padding: EdgeInsets.symmetric(horizontal: 8.0 * escala),
             child: Text(
               "S${partido.setActual}:",
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 10,
+                fontSize: 10 * escala,
                 color: Colors.blueGrey,
               ),
             ),
           ),
-          
+
           // Área de scroll de los balones
           Expanded(
             child: ListView.builder(
@@ -63,19 +64,19 @@ class _HistorialSetsWidgetState extends State<HistorialSetsWidget> {
               itemBuilder: (context, i) {
                 final punto = historialSets[setActualIdx][i];
                 return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                  padding: EdgeInsets.symmetric(horizontal: 1.5 * escala),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       // Número del punto
                       Text(
                         "${i + 1}",
-                        style: const TextStyle(fontSize: 7, color: Colors.grey),
+                        style: TextStyle(fontSize: 7 * escala, color: Colors.grey),
                       ),
                       // Icono del balón
                       Icon(
                         Icons.sports_volleyball,
-                        size: 15, // Un pelín más pequeño para evitar cortes
+                        size: 15 * escala, // Un pelín más pequeño para evitar cortes
                         color: punto['equipo'] == 1 ? Colors.blue : Colors.red,
                       ),
                     ],

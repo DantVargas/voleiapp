@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import '../services/api_client.dart';
+import 'package:provider/provider.dart';
+import '../database/db_manager.dart';
 import '../models/partido_model.dart';
+import '../provider/ajustes_provider.dart';
 import 'partido_detalle_screen.dart';
 
 class HistorialScreen extends StatefulWidget {
@@ -22,20 +24,11 @@ class _HistorialScreenState extends State<HistorialScreen> {
 
   Future<void> _cargarPartidos() async {
     setState(() => _cargando = true);
-    try {
-      final rows = await ApiClient().obtenerPartidos();
-      setState(() {
-        _partidos = rows.map(Partido.fromMap).toList();
-        _cargando = false;
-      });
-    } catch (_) {
-      setState(() => _cargando = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("No se pudo conectar con el servidor")),
-        );
-      }
-    }
+    final rows = await DBManager().obtenerPartidos();
+    setState(() {
+      _partidos = rows.map(Partido.fromMap).toList();
+      _cargando = false;
+    });
   }
 
   Future<void> _eliminarPartido(Partido partido) async {
@@ -57,16 +50,8 @@ class _HistorialScreenState extends State<HistorialScreen> {
     );
 
     if (confirmar == true && partido.id != null) {
-      try {
-        await ApiClient().eliminarPartido(partido.id!);
-        _cargarPartidos();
-      } catch (_) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("No se pudo eliminar: revisá tu conexión")),
-          );
-        }
-      }
+      await DBManager().eliminarPartido(partido.id!);
+      _cargarPartidos();
     }
   }
 
@@ -81,15 +66,16 @@ class _HistorialScreenState extends State<HistorialScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final escala = context.watch<AjustesProvider>().escalaUI;
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Historial de Partidos"),
+        title: Text("Historial de Partidos", style: TextStyle(fontSize: 20 * escala)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.blueGrey,
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh, size: 24 * escala),
             onPressed: _cargarPartidos,
             tooltip: "Recargar",
           ),
@@ -98,59 +84,59 @@ class _HistorialScreenState extends State<HistorialScreen> {
       body: _cargando
           ? const Center(child: CircularProgressIndicator())
           : _partidos.isEmpty
-              ? _buildEstadoVacio()
+              ? _buildEstadoVacio(escala)
               : RefreshIndicator(
                   onRefresh: _cargarPartidos,
                   child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: EdgeInsets.symmetric(horizontal: 12 * escala, vertical: 8 * escala),
                     itemCount: _partidos.length,
-                    itemBuilder: (context, i) => _buildCardPartido(_partidos[i]),
+                    itemBuilder: (context, i) => _buildCardPartido(_partidos[i], escala),
                   ),
                 ),
     );
   }
 
-  Widget _buildEstadoVacio() {
-    return const Center(
+  Widget _buildEstadoVacio(double escala) {
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.sports_volleyball, size: 60, color: Colors.grey),
-          SizedBox(height: 12),
+          Icon(Icons.sports_volleyball, size: 60 * escala, color: Colors.grey),
+          SizedBox(height: 12 * escala),
           Text(
             "No hay partidos guardados",
-            style: TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.w500),
+            style: TextStyle(fontSize: 16 * escala, color: Colors.grey, fontWeight: FontWeight.w500),
           ),
-          SizedBox(height: 4),
+          SizedBox(height: 4 * escala),
           Text(
             "Guardá un partido desde la pantalla de Cancha",
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+            style: TextStyle(fontSize: 12 * escala, color: Colors.grey),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCardPartido(Partido partido) {
+  Widget _buildCardPartido(Partido partido, double escala) {
     final ganoA = partido.setsA > partido.setsB;
     final esFinalizado = partido.finalizado;
     final fecha = _formatFecha(partido.fecha);
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: EdgeInsets.only(bottom: 8 * escala),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 2,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () => _abrirDetalle(partido),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: EdgeInsets.symmetric(horizontal: 14 * escala, vertical: 10 * escala),
           child: Row(
             children: [
               // Indicador de color del ganador
               Container(
-                width: 4,
-                height: 50,
+                width: 4 * escala,
+                height: 50 * escala,
                 decoration: BoxDecoration(
                   color: esFinalizado
                       ? (ganoA ? Colors.blue : Colors.red)
@@ -158,7 +144,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12 * escala),
 
               // Info central
               Expanded(
@@ -171,17 +157,17 @@ class _HistorialScreenState extends State<HistorialScreen> {
                           partido.nombreEquipoA,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                            fontSize: 13 * escala,
                             color: ganoA && esFinalizado ? Colors.blue : Colors.black87,
                           ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          padding: EdgeInsets.symmetric(horizontal: 8 * escala),
                           child: Text(
                             "${partido.setsA} - ${partido.setsB}",
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w900,
-                              fontSize: 16,
+                              fontSize: 16 * escala,
                               color: Colors.blueGrey,
                             ),
                           ),
@@ -190,22 +176,22 @@ class _HistorialScreenState extends State<HistorialScreen> {
                           partido.nombreEquipoB,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                            fontSize: 13 * escala,
                             color: !ganoA && esFinalizado ? Colors.red : Colors.black87,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4 * escala),
                     Row(
                       children: [
                         Text(
                           fecha,
-                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          style: TextStyle(fontSize: 11 * escala, color: Colors.grey),
                         ),
                         if (partido.notas != null && partido.notas!.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          const Icon(Icons.notes, size: 12, color: Colors.grey),
+                          SizedBox(width: 8 * escala),
+                          Icon(Icons.notes, size: 12 * escala, color: Colors.grey),
                         ],
                       ],
                     ),
@@ -218,7 +204,7 @@ class _HistorialScreenState extends State<HistorialScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: EdgeInsets.symmetric(horizontal: 8 * escala, vertical: 3 * escala),
                     decoration: BoxDecoration(
                       color: esFinalizado ? Colors.green.shade50 : Colors.orange.shade50,
                       borderRadius: BorderRadius.circular(10),
@@ -229,16 +215,16 @@ class _HistorialScreenState extends State<HistorialScreen> {
                     child: Text(
                       esFinalizado ? "Finalizado" : "En curso",
                       style: TextStyle(
-                        fontSize: 9,
+                        fontSize: 9 * escala,
                         fontWeight: FontWeight.bold,
                         color: esFinalizado ? Colors.green.shade700 : Colors.orange.shade700,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6 * escala),
                   GestureDetector(
                     onTap: () => _eliminarPartido(partido),
-                    child: Icon(Icons.delete_outline, size: 18, color: Colors.grey.shade400),
+                    child: Icon(Icons.delete_outline, size: 18 * escala, color: Colors.grey.shade400),
                   ),
                 ],
               ),

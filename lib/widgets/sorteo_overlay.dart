@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../provider/partido_provider.dart';
+import '../provider/ajustes_provider.dart';
 
 class SorteoOverlay extends StatelessWidget {
   const SorteoOverlay({super.key});
@@ -8,24 +9,25 @@ class SorteoOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final partido = context.watch<PartidoProvider>();
+    final escala = context.watch<AjustesProvider>().escalaUI;
 
     return Container(
       color: Colors.black54,
       child: Center(
         child: Card(
-          margin: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
+          margin: EdgeInsets.symmetric(horizontal: 40 * escala, vertical: 10 * escala),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           child: Padding(
-            padding: const EdgeInsets.all(15),
+            padding: EdgeInsets.all(15 * escala),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 400),
+              constraints: BoxConstraints(maxWidth: 400 * escala),
               child: SingleChildScrollView( // <--- AGREGADO PARA PODER HACER SCROLL
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text(
+                    Text(
                       "CONFIGURACIÓN INICIAL",
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1.1),
+                      style: TextStyle(fontSize: 14 * escala, fontWeight: FontWeight.bold, letterSpacing: 1.1),
                     ),
                     const Divider(),
 
@@ -36,56 +38,60 @@ class SorteoOverlay extends StatelessWidget {
                           child: _buildDropdown<int>(
                             label: "Sets máx:",
                             value: partido.maxSets,
-                            items: [3, 5],
+                            items: const [3, 5],
                             onChanged: (val) => context.read<PartidoProvider>().cambiarMaxSets(val!),
+                            escala: escala,
                           ),
                         ),
-                        const SizedBox(width: 20),
+                        SizedBox(width: 20 * escala),
                         Expanded(
                           child: _buildDropdown<int>(
                             label: "Cambios máx:",
                             value: partido.cambiosMaximos,
-                            items: [6, 12, 15],
+                            items: const [6, 12, 15],
                             onChanged: (val) => context.read<PartidoProvider>().configurarPartido(
-                              maxCambios: val!, 
+                              maxCambios: val!,
                               maxTiempos: partido.tiemposMuertosA
                             ),
+                            escala: escala,
                           ),
                         ),
                       ],
                     ),
 
-                    const SizedBox(height: 15),
-                    const Text(
+                    SizedBox(height: 15 * escala),
+                    Text(
                       "¿Quién saca primero?",
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey),
+                      style: TextStyle(fontSize: 12 * escala, fontWeight: FontWeight.w600, color: Colors.grey),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10 * escala),
 
                     // Botones de Saque
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         _botonSaque(
-                          context, 
-                          id: 1, 
-                          nombre: partido.nombreEquipoA, 
-                          color: Colors.blue
+                          context,
+                          id: 1,
+                          nombre: partido.nombreEquipoA,
+                          color: Colors.blue,
+                          escala: escala,
                         ),
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10 * escala),
                         _botonSaque(
-                          context, 
-                          id: 2, 
-                          nombre: partido.nombreEquipoB, 
-                          color: Colors.red
+                          context,
+                          id: 2,
+                          nombre: partido.nombreEquipoB,
+                          color: Colors.red,
+                          escala: escala,
                         ),
                       ],
                     ),
 
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10 * escala),
                     TextButton(
                       onPressed: () => context.read<PartidoProvider>().cerrarSorteo(),
-                      child: const Text("CANCELAR", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                      child: Text("CANCELAR", style: TextStyle(color: Colors.grey, fontSize: 11 * escala)),
                     ),
                   ],
                 ),
@@ -103,15 +109,16 @@ class SorteoOverlay extends StatelessWidget {
     required T value,
     required List<T> items,
     required ValueChanged<T?> onChanged,
+    required double escala,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        Text(label, style: TextStyle(fontSize: 10 * escala, color: Colors.grey)),
         DropdownButton<T>(
           value: value,
           isExpanded: true,
-          style: const TextStyle(fontSize: 13, color: Colors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 13 * escala, color: Colors.black, fontWeight: FontWeight.bold),
           items: items.map((e) => DropdownMenuItem(value: e, child: Text("$e"))).toList(),
           onChanged: onChanged,
         ),
@@ -120,16 +127,16 @@ class SorteoOverlay extends StatelessWidget {
   }
 
   // Widget auxiliar para los botones de saque
-  Widget _botonSaque(BuildContext context, {required int id, required String nombre, required Color color}) {
+  Widget _botonSaque(BuildContext context, {required int id, required String nombre, required Color color, required double escala}) {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: 12 * escala, vertical: 8 * escala),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       onPressed: () => context.read<PartidoProvider>().iniciarPartido(id),
-      child: Text("Saca $nombre", style: const TextStyle(fontSize: 11)),
+      child: Text("Saca $nombre", style: TextStyle(fontSize: 11 * escala)),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../provider/partido_provider.dart';
+import '../provider/ajustes_provider.dart';
 import '../models/jugador_model.dart';
 
 class BancaWidget extends StatelessWidget {
@@ -19,14 +20,15 @@ class BancaWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final partido = context.watch<PartidoProvider>();
     final lista = partido.jugadoresDeBanca(equipoId);
+    final escala = context.watch<AjustesProvider>().escalaUI;
 
     return Container(
       // Sin ancho fijo: ocupa todo el panel lateral que le da PartidoScreen,
       // que a su vez se calcula según el ancho real de la pantalla.
       width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+      margin: EdgeInsets.symmetric(horizontal: 2 * escala, vertical: 4 * escala),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade200),
       ),
@@ -34,7 +36,7 @@ class BancaWidget extends StatelessWidget {
         children: [
           // Cabecera Minimalista
           Container(
-            padding: const EdgeInsets.symmetric(vertical: 4),
+            padding: EdgeInsets.symmetric(vertical: 4 * escala),
             width: double.infinity,
             decoration: BoxDecoration(
               color: color,
@@ -44,11 +46,11 @@ class BancaWidget extends StatelessWidget {
               children: [
                 Text(
                   titulo,
-                  style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: Colors.white, fontSize: 9 * escala, fontWeight: FontWeight.bold),
                 ),
                 GestureDetector(
                   onTap: () => _mostrarDialogoJugador(context),
-                  child: const Icon(Icons.add_circle_outline, color: Colors.white, size: 16),
+                  child: Icon(Icons.add_circle_outline, color: Colors.white, size: 16 * escala),
                 ),
               ],
             ),
@@ -65,7 +67,7 @@ class BancaWidget extends StatelessWidget {
                         spacing: 4,
                         runSpacing: 6,
                         alignment: WrapAlignment.center,
-                        children: lista.map((jugador) => _buildJugadorBanca(context, jugador)).toList(),
+                        children: lista.map((jugador) => _buildJugadorBanca(context, jugador, escala)).toList(),
                       ),
                     ),
             ),
@@ -76,26 +78,26 @@ class BancaWidget extends StatelessWidget {
   }
 
   // Widget de Jugador Individual (Círculo pequeño con dorsal)
-  Widget _buildJugadorBanca(BuildContext context, Jugador jugador) {
+  Widget _buildJugadorBanca(BuildContext context, Jugador jugador, double escala) {
     return GestureDetector(
       onTap: () => _mostrarDialogoJugador(context, jugador: jugador),
       onLongPress: () => _confirmarEliminar(context, jugador),
       child: Column(
         children: [
           CircleAvatar(
-            radius: 14, // Tamaño compacto
-            backgroundColor: color.withOpacity(0.1),
+            radius: 14 * escala, // Tamaño compacto
+            backgroundColor: color.withValues(alpha: 0.1),
             child: Text(
               "${jugador.dorsal}",
-              style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 10 * escala, color: color, fontWeight: FontWeight.bold),
             ),
           ),
           // Nombre pequeño opcional (solo iniciales si prefieres más espacio)
           SizedBox(
-            width: 35,
+            width: 35 * escala,
             child: Text(
               jugador.nombre ?? "",
-              style: const TextStyle(fontSize: 7),
+              style: TextStyle(fontSize: 7 * escala),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

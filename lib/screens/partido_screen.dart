@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../provider/partido_provider.dart';
+import '../provider/ajustes_provider.dart';
 import '../models/jugador_model.dart';
 import '../models/tipo_punto.dart';
 import '../models/complejo_punto.dart';
@@ -22,6 +23,7 @@ class PartidoScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final partido = context.watch<PartidoProvider>();
+    final escala = context.watch<AjustesProvider>().escalaUI;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -31,8 +33,8 @@ class PartidoScreen extends StatelessWidget {
           children: [
             // 1. BARRA SUPERIOR UNIFICADA (Retroceder + Marcador + Ajustes)
             Container(
-              height: 50,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              height: 50 * escala,
+              padding: EdgeInsets.symmetric(horizontal: 10 * escala),
               decoration: BoxDecoration(
                 color: Colors.white,
                 border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
@@ -42,9 +44,9 @@ class PartidoScreen extends StatelessWidget {
                   IconButton(
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
-                    icon: Icon(Icons.undo, 
-                      color: partido.hayHistorial ? Colors.blueGrey : Colors.grey.shade300, 
-                      size: 22),
+                    icon: Icon(Icons.undo,
+                      color: partido.hayHistorial ? Colors.blueGrey : Colors.grey.shade300,
+                      size: 22 * escala),
                     onPressed: partido.hayHistorial ? () => partido.deshacer() : null,
                   ),
                   const Spacer(),
@@ -57,7 +59,7 @@ class PartidoScreen extends StatelessWidget {
                   IconButton(
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
-                    icon: const Icon(Icons.settings, color: Colors.blueGrey, size: 22),
+                    icon: Icon(Icons.settings, color: Colors.blueGrey, size: 22 * escala),
                     onPressed: () => _mostrarAjustesPartido(context, partido),
                   ),
                 ],
@@ -65,7 +67,7 @@ class PartidoScreen extends StatelessWidget {
             ),
 
             // 2. HISTORIAL DE PUNTOS
-            const SizedBox(height: 25, child: Center(child: HistorialSetsWidget())),
+            SizedBox(height: 25 * escala, child: const Center(child: HistorialSetsWidget())),
 
             // 3. ÁREA DE JUEGO (Paneles laterales + Cancha)
             Expanded(
@@ -78,8 +80,9 @@ class PartidoScreen extends StatelessWidget {
                         // Panel proporcional al ancho real de la pantalla
                         // (celular chico, tablet o ventana web grande) en
                         // vez de un ancho fijo que en pantallas angostas le
-                        // roba demasiado espacio a la cancha.
-                        final panelWidth = (constraints.maxWidth * 0.12).clamp(64.0, 120.0);
+                        // roba demasiado espacio a la cancha, multiplicado
+                        // por la escala elegida en Ajustes.
+                        final panelWidth = (constraints.maxWidth * 0.12).clamp(64.0, 120.0) * escala;
                         return Row(
                           children: [
                             // PANEL IZQUIERDO (Equipo A)
@@ -107,8 +110,8 @@ class PartidoScreen extends StatelessWidget {
                     Align(
                       alignment: Alignment.bottomCenter,
                       child: Padding(
-                        padding: const EdgeInsets.only(bottom: 20),
-                        child: _botonEmpezarGrande(context, partido),
+                        padding: EdgeInsets.only(bottom: 20 * escala),
+                        child: _botonEmpezarGrande(context, partido, escala),
                       ),
                     ),
 
@@ -125,20 +128,21 @@ class PartidoScreen extends StatelessWidget {
   // --- WIDGETS SEGÚN TU PROPUESTA ---
 
   Widget _buildPanelLateral(BuildContext context, int equipoId, String titulo, Color color, PartidoProvider partido, double ancho) {
+    final escala = context.watch<AjustesProvider>().escalaUI;
     return SizedBox(
       width: ancho,
       child: Column(
         children: [
-          _botonTMCompacto(context, equipoId, partido),
+          _botonTMCompacto(context, equipoId, partido, escala),
           Expanded(child: BancaWidget(equipoId: equipoId, titulo: titulo, color: color)),
           // La info de cambios ahora está despejada
-          _infoCambiosCompacta(equipoId, partido),
+          _infoCambiosCompacta(equipoId, partido, escala),
         ],
       ),
     );
   }
 
-  Widget _botonEmpezarGrande(BuildContext context, PartidoProvider partido) {
+  Widget _botonEmpezarGrande(BuildContext context, PartidoProvider partido, double escala) {
     return ElevatedButton.icon(
       onPressed: () {
         if (partido.setActual == 1 && !partido.cronometroSet.isRunning) {
@@ -152,15 +156,15 @@ class PartidoScreen extends StatelessWidget {
           }
         }
       },
-      icon: const Icon(Icons.play_arrow),
+      icon: Icon(Icons.play_arrow, size: 24 * escala),
       label: Text(
         partido.setActual == 1 ? "EMPEZAR PARTIDO" : "INICIAR SET ${partido.setActual}",
-        style: const TextStyle(fontWeight: FontWeight.bold),
+        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14 * escala),
       ),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+        padding: EdgeInsets.symmetric(horizontal: 30 * escala, vertical: 15 * escala),
         elevation: 10,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
       ),
@@ -168,6 +172,9 @@ class PartidoScreen extends StatelessWidget {
   }
   
   void _mostrarAjustesPartido(BuildContext context, PartidoProvider partido) {
+  final ajustes = context.read<AjustesProvider>();
+  double escalaTemp = ajustes.escalaUI;
+
   showDialog(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -176,6 +183,55 @@ class PartidoScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Tamaño de la interfaz (HUD): 100% mantiene el tamaño actual;
+            // achicarlo sirve para pantallas donde todo se ve muy grande.
+            // El slider solo cambia un valor local: la app recién se
+            // reescala al tocar "Aplicar" (si se reescalara mientras se
+            // arrastra el dedo, el propio gesto queda "pegado").
+            StatefulBuilder(
+              builder: (context, setLocal) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.photo_size_select_small),
+                    title: Text("Tamaño de la interfaz: ${(escalaTemp * 100).round()}%"),
+                    subtitle: const Text("Elegí el tamaño y tocá Aplicar para confirmar"),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Slider(
+                            value: escalaTemp,
+                            min: 0.7,
+                            max: 1.4,
+                            divisions: 14,
+                            label: "${(escalaTemp * 100).round()}%",
+                            onChanged: (v) => setLocal(() => escalaTemp = v),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            // Cerramos el diálogo primero: si el cambio de
+                            // escala (que reconstruye toda la app) se
+                            // dispara antes de que termine de cerrarse, la
+                            // "cortina" del diálogo puede quedar bloqueando
+                            // los toques en el resto de la app.
+                            Navigator.pop(ctx);
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              ajustes.cambiarEscala(escalaTemp);
+                            });
+                          },
+                          child: const Text("Aplicar"),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
             // Cambios Infinitos
             SwitchListTile(
               title: const Text("Cambios Infinitos"),
@@ -227,35 +283,35 @@ class PartidoScreen extends StatelessWidget {
 
   // --- COMPONENTES COMPACTOS ---
 
-  Widget _botonTMCompacto(BuildContext context, int equipoId, PartidoProvider partido) {
+  Widget _botonTMCompacto(BuildContext context, int equipoId, PartidoProvider partido, double escala) {
     int restantes = equipoId == 1 ? partido.tiemposMuertosA : partido.tiemposMuertosB;
     bool estaActivo = partido.partidoEmpezado && restantes > 0;
 
     return GestureDetector(
       onTap: estaActivo ? () => _mostrarTimerTiempoMuerto(context, equipoId) : null,
       child: Opacity(
-        opacity: estaActivo ? 1.0 : 0.4, 
+        opacity: estaActivo ? 1.0 : 0.4,
         child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 2),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          margin: EdgeInsets.symmetric(vertical: 2 * escala),
+          padding: EdgeInsets.symmetric(horizontal: 6 * escala, vertical: 3 * escala),
           decoration: BoxDecoration(
             color: estaActivo ? Colors.orange.shade50 : Colors.grey.shade100,
             border: Border.all(color: estaActivo ? Colors.orange.shade700 : Colors.grey.shade400),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Text("TM: $restantes", 
-            style: TextStyle(fontSize: 9, color: estaActivo ? Colors.orange.shade800 : Colors.grey.shade600, fontWeight: FontWeight.bold)),
+          child: Text("TM: $restantes",
+            style: TextStyle(fontSize: 9 * escala, color: estaActivo ? Colors.orange.shade800 : Colors.grey.shade600, fontWeight: FontWeight.bold)),
         ),
       ),
     );
   }
 
-  Widget _infoCambiosCompacta(int equipoId, PartidoProvider partido) {
+  Widget _infoCambiosCompacta(int equipoId, PartidoProvider partido, double escala) {
     int realizados = equipoId == 1 ? partido.cambiosRealizadosA : partido.cambiosRealizadosB;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: 4 * escala),
       child: Text("Cambios: $realizados/${partido.cambiosMaximos}",
-        style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+        style: TextStyle(fontSize: 8 * escala, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
     );
   }
 

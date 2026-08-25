@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../provider/partido_provider.dart';
+import '../provider/ajustes_provider.dart';
 
 class MarcadorWidget extends StatelessWidget {
   /// Si se provee, se llama en vez de `partido.sumarPunto(equipoId)` al
@@ -13,10 +14,11 @@ class MarcadorWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final partido = context.watch<PartidoProvider>();
+    final escala = context.watch<AjustesProvider>().escalaUI;
 
     return Container(
-      height: 50,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
+      height: 50 * escala,
+      padding: EdgeInsets.symmetric(horizontal: 10 * escala),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
@@ -32,18 +34,19 @@ class MarcadorWidget extends StatelessWidget {
             onAdd: () => onPuntoPersonalizado != null ? onPuntoPersonalizado!(1) : partido.sumarPunto(1),
             esIzquierda: true,
             tieneSaque: partido.equipoQueSaca == 1,
+            escala: escala,
           ),
 
           // INFO CENTRAL (Sets y Marcador de Sets)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: EdgeInsets.symmetric(horizontal: 12 * escala, vertical: 4 * escala),
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
               borderRadius: BorderRadius.circular(15),
             ),
             child: Text(
               "S${partido.setActual} | ${partido.setsGanadosA}-${partido.setsGanadosB}",
-              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+              style: TextStyle(fontSize: 10 * escala, fontWeight: FontWeight.bold, color: Colors.blueGrey),
             ),
           ),
 
@@ -55,6 +58,7 @@ class MarcadorWidget extends StatelessWidget {
             onAdd: () => onPuntoPersonalizado != null ? onPuntoPersonalizado!(2) : partido.sumarPunto(2),
             esIzquierda: false,
             tieneSaque: partido.equipoQueSaca == 2,
+            escala: escala,
           ),
         ],
       ),
@@ -68,28 +72,29 @@ class MarcadorWidget extends StatelessWidget {
     required VoidCallback onAdd,
     required bool esIzquierda,
     required bool tieneSaque,
+    required double escala,
   }) {
     // Widgets base
     final widgetNombre = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (tieneSaque && !esIzquierda) ...[
-          const Icon(Icons.sports_volleyball, size: 16, color: Colors.orange),
-          const SizedBox(width: 4),
+          Icon(Icons.sports_volleyball, size: 16 * escala, color: Colors.orange),
+          SizedBox(width: 4 * escala),
         ],
         Text(
           nombre.length > 10 ? "${nombre.substring(0, 8)}." : nombre,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 11 * escala, fontWeight: FontWeight.bold),
         ),
         if (tieneSaque && esIzquierda) ...[
-          const SizedBox(width: 4),
-          const Icon(Icons.sports_volleyball, size: 16, color: Colors.orange),
+          SizedBox(width: 4 * escala),
+          Icon(Icons.sports_volleyball, size: 16 * escala, color: Colors.orange),
         ],
       ],
     );
 
     final widgetPuntos = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: 12 * escala, vertical: 4 * escala),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -97,20 +102,20 @@ class MarcadorWidget extends StatelessWidget {
       ),
       child: Text(
         "$puntos",
-        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
+        style: TextStyle(fontSize: 20 * escala, fontWeight: FontWeight.bold, color: color),
       ),
     );
 
     final widgetBotonSuma = GestureDetector(
       onTap: onAdd,
       child: Container(
-        padding: const EdgeInsets.all(8),
+        padding: EdgeInsets.all(8 * escala),
         decoration: BoxDecoration(
           color: color,
           shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: color.withOpacity(0.4), blurRadius: 4, offset: const Offset(0, 2))],
+          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 4, offset: const Offset(0, 2))],
         ),
-        child: const Icon(Icons.add, color: Colors.white, size: 16),
+        child: Icon(Icons.add, color: Colors.white, size: 16 * escala),
       ),
     );
 
@@ -120,16 +125,16 @@ class MarcadorWidget extends StatelessWidget {
       children: esIzquierda
           ? [
               widgetBotonSuma,
-              const SizedBox(width: 10),
+              SizedBox(width: 10 * escala),
               widgetPuntos,
-              const SizedBox(width: 10),
+              SizedBox(width: 10 * escala),
               widgetNombre,
             ]
           : [
               widgetNombre,
-              const SizedBox(width: 10),
+              SizedBox(width: 10 * escala),
               widgetPuntos,
-              const SizedBox(width: 10),
+              SizedBox(width: 10 * escala),
               widgetBotonSuma,
             ],
     );
